@@ -88,9 +88,24 @@ Non-negotiables:
 - Future: graduate to the Claude Agent SDK so the enricher can dedupe/link related items
   and split brain-dumps — for now it's a single structured call per item.
 
-### Claude skill (system skill)
-- A skill that calls the *agent* API: `GET /api/items?status=open` for recent/unfinished,
-  posts comments back. Lives in skills dir; token from local config/env, not committed.
+### Claude triage skill (built)
+- `.claude/skills/idj-triage/` — a **project skill** (committed, versioned with the API it
+  calls). Invoked in Claude Code ("triage my inbox"), it reads `GET /api/items?status=open`,
+  reasons across the whole set (cluster/dedupe/next-actions/stale), and writes back
+  comment/done/reopen. **Runs on the user's Claude Max subscription** (no API bill) — the
+  richer, whole-inbox counterpart to the cheap per-item auto-enricher.
+- Config in `.claude/skills/idj-triage/.env.local` (gitignored): `IDJ_BASE_URL` +
+  `IDJ_AGENT_TOKEN`. `.env.example` committed. Mint token: `bun run token:mint agent "..."`.
+- Loads only when Claude Code is in the idj repo. To use it from anywhere, junction it into
+  system skills: `mklink /J "%USERPROFILE%\.claude\skills\idj-triage" "<repo>\.claude\skills\idj-triage"`.
+- Gap the skill can't yet fill: no `item.edited` endpoint, so it can comment + change status
+  but not retag/rewrite kind via the API. Add that endpoint when the skill needs it.
+
+### Billing model (decided)
+- Max x20 covers **Claude Code** (incl. `claude -p`) + Claude.ai, NOT the raw Anthropic API
+  (`x-api-key`, pay-per-token). So: the **triage skill** (Claude Code) is subscription-covered;
+  the **auto-enricher** (SDK → api.anthropic.com) needs a key + bills per token (pennies at
+  this volume). Auto-enrich stays optional/off-without-key; the skill is the primary path.
 
 ### Deployment via ops repo (LATER — gated; nothing applied yet)
 Firefly has two app-hosting patterns in ops. We mirror the **socket-based isolated runner**
@@ -141,7 +156,7 @@ App-side prerequisites before wiring 3–4: Dockerfile, `SOCKET_PATH=/run/idj/id
 - [ ] WebAuthn register/login + session; guard web routes AND the web server functions.
 - [ ] Token management settings page.
 - [ ] Siri Shortcut recipe (documented in README).
-- [ ] Claude skill hitting the agent API.
+- [x] Claude triage skill (`.claude/skills/idj-triage/`) — whole-inbox reasoning via agent API.
 - [ ] Dockerfile + compose; backups. Deploy to firefly (gated).
 
 ## Findings / gotchas

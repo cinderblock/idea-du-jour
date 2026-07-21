@@ -84,6 +84,16 @@ See scripts: `bun run dev` · `typecheck` · `build` · `db:migrate` · `db:gene
 `db:rebuild` (replay log → projection) · `token:mint <capture|agent> "<label>"` ·
 `icons:gen` (regenerate PWA icons) · `enrich:pending` (enrich items captured before a key existed).
 
+### Triage with Claude
+
+`.claude/skills/idj-triage/` is a Claude Code skill for working through the inbox — say
+"triage my inbox" and Claude reads your open items via the agent API, reasons across the
+whole set (cluster, dedupe, next actions, stale items), and writes back comments / done /
+reopen. Runs on your Claude subscription (no API bill). Configure it by copying
+`.claude/skills/idj-triage/.env.example` to `.env.local` and pasting an agent token
+(`bun run token:mint agent "claude-triage"`). It loads when you're in this repo; to use it
+anywhere, junction it into `~/.claude/skills/`.
+
 ### Layout
 - `src/db/` — Drizzle schema (`events`, `items`, `tokens`, `users`, `credentials`),
   libsql client, migrator.
