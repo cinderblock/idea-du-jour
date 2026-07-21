@@ -1,0 +1,7 @@
+# idj.isozilla.com — idea-du-jour (ops stack, loopback 127.0.0.1:18787).
+idj.isozilla.com {
+	request_body {
+		max_size 10MB
+	}
+	reverse_proxy 127.0.0.1:18787
+}

@@ -119,38 +119,28 @@ Non-negotiables:
   this volume). Auto-enrich stays optional/off-without-key; the skill is the primary path.
 
 ### Deployment via ops repo (LATER — gated; nothing applied yet)
-Firefly has two app-hosting patterns in ops. We mirror the **socket-based isolated runner**
-(bins / camptool) — it's the current gold standard and fits idj exactly: a Bun app + SQLite
-data volume + a unix socket shared with Caddy, plus a self-hosted GitHub runner for
-push-to-deploy. No published TCP port, no docker socket, no host mounts. The `bins` app
-(Node + SQLite via DATABASE_PATH + SOCKET_PATH) is a near-identical template.
+**Chosen pattern: ops-managed "stack"** (like `nginx-cache`), NOT the socket/runner pattern
+(bins/camptool). Firefly's `deploy.sh` iterates `servers/firefly/stacks/*/compose.yml`,
+generates `.env` from each stack's `env.json` (auto-generates `SESSION_SECRET`), and does
+`docker compose pull` + `up -d`. Simpler than a self-hosted runner-in-container, and needs
+**no change to Caddy's compose** — Caddy is `network_mode: host`, so it proxies straight to a
+loopback port. This is why we switched off the earlier bins/socket plan.
 
-Ops changes required (all staged for review; **infra rules: per-change authorization,
-CI-only deploys, `bun run sync` dry-run before committing CF changes, don't touch servers
-directly**). Note: ops repo is currently on branch `ask-worker`.
+Full picture + staged files live in **`deploy/`** (`deploy/README.md`, `deploy/ops-staged/`).
 
-1. **Cloudflare DNS** — `cloudflare/config/isozilla/isozilla.com.yaml`, firefly entry,
-   add under `proxies:`:  `    idj.isozilla.com: idea-du-jour capture/todo app on docker`
-2. **Caddy site** — new `servers/firefly/sites.d/idj.isozilla.com.caddy`:
-   ```
-   # idj.isozilla.com — idea-du-jour capture/triage app (unix socket, bins pattern).
-   idj.isozilla.com {
-       request_body { max_size 20MB }
-       reverse_proxy unix//run/idj/idj.sock {
-           header_up X-Real-IP {client_ip}
-           header_up X-Forwarded-Proto https
-           header_up X-Forwarded-For {client_ip}
-       }
-   }
-   ```
-3. **Caddy compose** — `servers/firefly/docker-compose.yml`: add `idj_sock:/run/idj` volume
-   mount + external `idj_sock` volume (mirror `bins_sock`).
-4. **Runner stack** — `servers/firefly/idj-runner/compose.yml` + `ensure-idj-runner.sh`
-   (clone of bins-runner) + install job in the ops workflow. Needs the idj app repo to
-   publish an image to ghcr and host a self-hosted runner (labels `firefly,idj`).
+App-side (this repo — built + prod-runtime verified):
+- `Dockerfile` (Bun build + slim runtime; migrate-on-boot; serves Nitro output on `PORT`),
+  `.github/workflows/build.yml` (push → `ghcr.io/<owner>/idea-du-jour:{latest,sha}`).
 
-App-side prerequisites before wiring 3–4: Dockerfile, `SOCKET_PATH=/run/idj/idj.sock`,
-`DATABASE_PATH` on a persisted volume, a deploy workflow. WebAuthn RP ID = `idj.isozilla.com`.
+Ops changes (GATED — per-change auth; `bun run sync` dry-run before CF commit):
+1. **DNS** — one line under firefly `proxies:` in `isozilla.com.yaml` (proxied, like vikunja).
+2. **Caddy site** — `sites.d/idj.isozilla.com.caddy` → `reverse_proxy 127.0.0.1:18787`.
+3. **Stack** — `stacks/idj/compose.yml` + `env.json` (ghcr image, `data` volume, loopback
+   `127.0.0.1:18787:3000`). Committing 2+3 to ops master triggers the deploy workflow.
+
+Prereqs needing the user: (a) idj on GitHub (`cinderblock/idea-du-jour` assumed — image name);
+(b) **make the ghcr package public** (stack pull runs without registry login); (c) enrichment
+stays OFF in prod (no `ANTHROPIC_API_KEY`) — triage skill is the primary path.
 
 ## Plan / steps
 - [x] Lock big decisions (stack, store, auth). Write this plan.
@@ -169,6 +159,8 @@ App-side prerequisites before wiring 3–4: Dockerfile, `SOCKET_PATH=/run/idj/id
 - [ ] Token management settings page (+ passkey management: list/add/remove).
 - [ ] Siri Shortcut recipe (documented in README).
 - [x] Claude triage skill (`.claude/skills/idj-triage/`) — whole-inbox reasoning via agent API.
+- [x] Deploy artifacts: Dockerfile + CI (prod runtime verified); ops changes staged in `deploy/`.
+- [ ] Go live: idj→GitHub, public ghcr package, apply gated ops changes, first passkey on prod.
 - [ ] Dockerfile + compose; backups. Deploy to firefly (gated).
 
 ## Findings / gotchas
@@ -212,6 +204,16 @@ App-side prerequisites before wiring 3–4: Dockerfile, `SOCKET_PATH=/run/idj/id
 - **Service worker can't precache `/`** now that it redirects to `/login` when unauthed —
   a redirected response throws on `cache.put`. Dropped `/` from the precache SHELL; the nav
   handler caches it opportunistically only when `res.ok && !res.redirected` (bumped `idj-v2`).
+- **Deploy: firefly uses a "stack" loop** in `servers/firefly/deploy.sh` — per-stack
+  `env.json`→`.env` (with `generate` for secrets), `docker compose pull` + `up -d`, config-hash
+  force-recreate. Triggers: weekly cron, ops push touching `servers/**`, or `workflow_dispatch`.
+  **Stacks pull with NO registry login** (login is later, for Caddy) → the idj ghcr image must
+  be **public**, else move `docker login` before the stacks loop (an ops change). `PREFIX` =
+  `FIREFLY_`; `env.json` non-generated keys read `FIREFLY_<KEY>` secrets/vars, empty-string
+  defaults still error (use a real default or omit the key).
+- **No Docker on this machine** — the image build is unverified locally (CI builds it). But the
+  container's exact runtime IS verified: `bun run db:migrate && bun .output/server/index.mjs`
+  with `HOST`/`PORT`/`DATABASE_URL` env serves the prod build (307 gate + `/api/auth/me` OK).
 - **Auth verified around the ceremony, not through it.** No WebAuthn authenticator available
   here, so register→login with a real passkey is UNTESTED. Verified: `/` redirects (307) when
   unauthed, `/login` is public, `/api/auth/me` reports no user, and register/login `options`
