@@ -160,7 +160,11 @@ stays OFF in prod (no `ANTHROPIC_API_KEY`) — triage skill is the primary path.
 - [ ] Siri Shortcut recipe (documented in README).
 - [x] Claude triage skill (`.claude/skills/idj-triage/`) — whole-inbox reasoning via agent API.
 - [x] Deploy artifacts: Dockerfile + CI (prod runtime verified); ops changes staged in `deploy/`.
-- [ ] Go live: idj→GitHub, public ghcr package, apply gated ops changes, first passkey on prod.
+- [x] **LIVE at https://idj.isozilla.com** — public GitHub repo + ghcr image, ops stack/Caddy/DNS
+      applied to firefly. Verified: `/api/auth/me` responds, `/` gates (307), TLS via Cloudflare.
+- [ ] Prod follow-ups: create your passkey (claim the inbox); mint prod capture/agent tokens
+      (`docker exec idj bun run token:mint …`) for Siri + the triage skill.
+- [ ] Siri Shortcut recipe (documented in README).
 - [ ] Dockerfile + compose; backups. Deploy to firefly (gated).
 
 ## Findings / gotchas
@@ -214,6 +218,15 @@ stays OFF in prod (no `ANTHROPIC_API_KEY`) — triage skill is the primary path.
 - **No Docker on this machine** — the image build is unverified locally (CI builds it). But the
   container's exact runtime IS verified: `bun run db:migrate && bun .output/server/index.mjs`
   with `HOST`/`PORT`/`DATABASE_URL` env serves the prod build (307 gate + `/api/auth/me` OK).
+- **First firefly deploy failed: `ghcr … denied` on the stack pull** — even though the image is
+  public (anon `HEAD` = 200). Cause: `deploy.sh` only logged into ghcr AFTER the stacks loop, so
+  the pull used a stale/expired `GITHUB_TOKEN` from a prior deploy → docker sends it instead of
+  falling back to anonymous → denied. Fix (ops commit `fccb667`): `docker login ghcr.io` before
+  the stacks loop, guarded on REGISTRY creds. Redeploy succeeded. General fix for any ghcr stack.
+- **Applied ops changes via an isolated git worktree off `origin/master`** (the main ops checkout
+  was on `ask-worker` with unrelated WIP). CF `bun run sync` is dry-run by default (`APPLY=1` to
+  apply); it showed exactly `+ CNAME idj.isozilla.com (proxied)`, 0 deletes. Pushed
+  `idj-deploy:master`; ops CI (Cloudflare + Server Deploys) applied it. Worktree cleaned up.
 - **Auth verified around the ceremony, not through it.** No WebAuthn authenticator available
   here, so register→login with a real passkey is UNTESTED. Verified: `/` redirects (307) when
   unauthed, `/login` is public, `/api/auth/me` reports no user, and register/login `options`
