@@ -162,9 +162,11 @@ stays OFF in prod (no `ANTHROPIC_API_KEY`) — triage skill is the primary path.
 - [x] Deploy artifacts: Dockerfile + CI (prod runtime verified); ops changes staged in `deploy/`.
 - [x] **LIVE at https://idj.isozilla.com** — public GitHub repo + ghcr image, ops stack/Caddy/DNS
       applied to firefly. Verified: `/api/auth/me` responds, `/` gates (307), TLS via Cloudflare.
-- [ ] Prod follow-ups: create your passkey (claim the inbox); mint prod capture/agent tokens
-      (`docker exec idj bun run token:mint …`) for Siri + the triage skill.
-- [ ] Siri Shortcut recipe (documented in README).
+- [x] Prod capture + agent tokens minted (via `docker exec idj bun -` over SSH); verified
+      capture→read→scope end-to-end over HTTPS. Triage skill `.env.local` now points at prod.
+- [x] Siri Shortcut recipe documented in README ("Capture to idj").
+- [ ] **Create your passkey on prod to claim the inbox** — still `hasUser:false` (first
+      registrant wins). Build the Siri Shortcut with the minted capture token.
 - [ ] Dockerfile + compose; backups. Deploy to firefly (gated).
 
 ## Findings / gotchas
