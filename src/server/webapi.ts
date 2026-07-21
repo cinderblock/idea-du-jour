@@ -1,4 +1,5 @@
 import { createServerFn } from '@tanstack/react-start'
+import { enqueueEnrichment } from './enrich'
 import {
   captureItem,
   commentItem,
@@ -33,6 +34,7 @@ export const webCapture = createServerFn({ method: 'POST' })
     const text = (data.text ?? '').trim()
     if (!text) throw new Error('empty capture')
     const id = await captureItem({ text, actor: 'web' })
+    enqueueEnrichment(id)
     return { id }
   })
 

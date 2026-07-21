@@ -50,6 +50,12 @@ function ItemDetail() {
           {item.body}
         </p>
 
+        {item.summary && (
+          <p className="mt-3 border-l-2 border-amber-300 pl-3 text-sm italic text-gray-500 dark:border-amber-700 dark:text-gray-400">
+            {item.summary}
+          </p>
+        )}
+
         {item.tags.length > 0 && (
           <div className="mt-3">
             <Tags tags={item.tags} />

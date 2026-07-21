@@ -1,4 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
+import { enqueueEnrichment } from '../../server/enrich'
 import { captureItem } from '../../server/events'
 import { AuthError, authenticate } from '../../server/tokens'
 
@@ -50,6 +51,7 @@ export const Route = createFileRoute('/api/capture')({
           ts: typeof body.ts === 'number' ? body.ts : undefined,
         })
 
+        enqueueEnrichment(id)
         return Response.json({ id }, { status: 201 })
       },
     },

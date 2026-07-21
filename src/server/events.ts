@@ -1,5 +1,5 @@
 import { ulid } from 'ulid'
-import { and, asc, desc, eq, gt } from 'drizzle-orm'
+import { and, asc, desc, eq, gt, isNull } from 'drizzle-orm'
 import { db } from '../db/client'
 import { events, items, type Event, type Item } from '../db/schema'
 import { parseCapture } from './capture'
@@ -186,6 +186,64 @@ export async function setStatus(opts: {
   return eventId
 }
 
+export type Enrichment = {
+  kind: string
+  title: string
+  tags: string[]
+  summary: string
+}
+
+/**
+ * Merge an agent's enrichment into an item. Human/keyword intent wins:
+ * `kind` is only taken when the item is still the default `note`, `title`
+ * only fills when empty, and AI `tags` are unioned with existing ones.
+ * `summary` is AI-owned. Appended as an immutable `item.enriched` event.
+ */
+export async function enrichItem(opts: {
+  itemId: string
+  enrichment: Enrichment
+  model: string
+  actor?: Actor
+  ts?: number
+}): Promise<string> {
+  const item = await requireItem(opts.itemId)
+  const ts = opts.ts ?? Date.now()
+  const eventId = ulid()
+  const e = opts.enrichment
+
+  const kind = item.kind === 'note' ? e.kind : item.kind
+  const title = item.title ?? e.title
+  const tags = [...new Set([...item.tags, ...e.tags])]
+
+  await db.transaction(async (tx) => {
+    await tx.insert(events).values({
+      id: eventId,
+      ts,
+      type: 'item.enriched',
+      itemId: opts.itemId,
+      actor: opts.actor ?? 'agent:claude',
+      tokenId: null,
+      payload: { ...e, model: opts.model },
+    })
+    await tx
+      .update(items)
+      .set({ kind, title, tags, summary: e.summary, enrichedTs: ts, updatedTs: ts })
+      .where(eq(items.id, opts.itemId))
+  })
+
+  return eventId
+}
+
+/** Items awaiting their first enrichment (oldest first), for the sweep worker. */
+export async function listUnenriched(limit = 20) {
+  return db
+    .select()
+    .from(items)
+    .where(isNull(items.enrichedTs))
+    .orderBy(asc(items.createdTs))
+    .limit(limit)
+}
+
 /**
  * Rebuild the entire `items` projection by replaying the append-only log.
  * Proves the log is the source of truth — the projection is disposable.
@@ -208,6 +266,8 @@ export async function rebuildProjection(): Promise<number> {
           status: 'open',
           tags: (p.tags as string[]) ?? [],
           firstCapture: (p.raw as string) ?? '',
+          summary: null,
+          enrichedTs: null,
         })
         break
       case 'item.edited': {
@@ -224,6 +284,20 @@ export async function rebuildProjection(): Promise<number> {
       case 'item.commented': {
         const cur = byItem.get(ev.itemId)
         if (cur) cur.updatedTs = ev.ts
+        break
+      }
+      case 'item.enriched': {
+        const cur = byItem.get(ev.itemId)
+        if (cur) {
+          if (cur.kind === 'note' && typeof p.kind === 'string') cur.kind = p.kind
+          if (!cur.title && typeof p.title === 'string') cur.title = p.title
+          if (Array.isArray(p.tags)) {
+            cur.tags = [...new Set([...cur.tags, ...(p.tags as string[])])]
+          }
+          if (typeof p.summary === 'string') cur.summary = p.summary
+          cur.enrichedTs = ev.ts
+          cur.updatedTs = ev.ts
+        }
         break
       }
       case 'item.done':

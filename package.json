@@ -13,9 +13,11 @@
     "db:migrate": "bun run src/db/migrate.ts",
     "token:mint": "bun run scripts/mint-token.ts",
     "db:rebuild": "bun run scripts/rebuild.ts",
-    "icons:gen": "bun run scripts/gen-icons.ts"
+    "icons:gen": "bun run scripts/gen-icons.ts",
+    "enrich:pending": "bun run scripts/enrich-pending.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.112.4",
     "@libsql/client": "^0.17.4",
     "@simplewebauthn/browser": "^13.3.0",
     "@simplewebauthn/server": "^13.3.2",
@@ -26,7 +28,8 @@
     "nitro": "^3.0.1-20260721-095825-c1ff6ba6",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "ulid": "^3.0.2"
+    "ulid": "^3.0.2",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",

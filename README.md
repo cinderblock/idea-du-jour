@@ -17,6 +17,9 @@ and progress.
   `items` projection for fast reads. Drizzle ORM.
 - **Web auth:** Passkey / WebAuthn (Face ID). *(auth phase — not wired yet)*
 - **API auth:** bearer tokens — *capture* (write-only, for Siri) and *agent* (read + comment).
+- **Agent enrichment:** captures are asynchronously classified/tagged/summarized by Claude
+  (`claude-sonnet-5` via the Anthropic SDK) and written back as an `item.enriched` event —
+  off when no `ANTHROPIC_API_KEY` is set. Never blocks or fails the capture path.
 - **Hosting:** Docker on `firefly` behind Caddy (HTTPS) at `idj.isozilla.com`. *(later; infra
   changes are gated — see `plans/idea-du-jour.md`)*
 
@@ -79,7 +82,7 @@ external agents. *(Note: the web UI is not yet auth-gated — that's the WebAuth
 
 See scripts: `bun run dev` · `typecheck` · `build` · `db:migrate` · `db:generate` ·
 `db:rebuild` (replay log → projection) · `token:mint <capture|agent> "<label>"` ·
-`icons:gen` (regenerate PWA icons).
+`icons:gen` (regenerate PWA icons) · `enrich:pending` (enrich items captured before a key existed).
 
 ### Layout
 - `src/db/` — Drizzle schema (`events`, `items`, `tokens`, `users`, `credentials`),

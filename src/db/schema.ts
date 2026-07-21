@@ -45,6 +45,10 @@ export const items = sqliteTable('items', {
     .$type<string[]>()
     .default(sql`'[]'`),
   firstCapture: text('first_capture').notNull(),
+  /** AI-generated one-line summary (null until enriched). */
+  summary: text('summary'),
+  /** When an agent last enriched this item (null = not yet enriched). */
+  enrichedTs: integer('enriched_ts'),
 })
 
 /**

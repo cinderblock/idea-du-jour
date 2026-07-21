@@ -74,6 +74,20 @@ Non-negotiables:
   header `Authorization: Bearer <capture-token>`, body = dictated/typed text.
 - Bind to Action button. Second shortcut on the share sheet for text/URLs.
 
+### Agent enrichment (built)
+- **Async, never inline.** Capture appends `item.created` and returns instantly; a
+  fire-and-forget worker (`src/server/enrich.ts`) calls Claude and appends `item.enriched`.
+  Capture never blocks on or fails from the LLM.
+- **SDK, structured output.** `@anthropic-ai/sdk` `messages.parse` + zod schema
+  (kind/title/tags/summary). Model `claude-sonnet-5` (`ENRICH_MODEL`), `thinking: disabled`
+  + `effort: low` (cheap classify). Gated on `ANTHROPIC_API_KEY` — no key → silent skip
+  (dev works without creds). `bun run enrich:pending` sweeps items captured before a key existed.
+- **Precedence (human/keyword wins):** `kind` only overwritten when still default `note`;
+  `title` fills only when empty; AI `tags` union with existing; `summary` is AI-owned. All
+  applied via the append-only event, so `rebuildProjection` replays enrichment too.
+- Future: graduate to the Claude Agent SDK so the enricher can dedupe/link related items
+  and split brain-dumps — for now it's a single structured call per item.
+
 ### Claude skill (system skill)
 - A skill that calls the *agent* API: `GET /api/items?status=open` for recent/unfinished,
   posts comments back. Lives in skills dir; token from local config/env, not committed.
@@ -123,6 +137,7 @@ App-side prerequisites before wiring 3–4: Dockerfile, `SOCKET_PATH=/run/idj/id
 - [x] Web server functions (`src/server/webapi.ts`) — first-party read/write, no token.
 - [x] Triage PWA UI (inbox + quick-capture + filters; item detail + comments + done/reopen).
 - [x] PWA installability: manifest.json, service worker, iOS meta, generated PNG icons.
+- [x] Agent enrichment: async Claude classify/tag/summarize → `item.enriched` event.
 - [ ] WebAuthn register/login + session; guard web routes AND the web server functions.
 - [ ] Token management settings page.
 - [ ] Siri Shortcut recipe (documented in README).
@@ -160,6 +175,14 @@ App-side prerequisites before wiring 3–4: Dockerfile, `SOCKET_PATH=/run/idj/id
   (malformed results, timeouts) during this session.
 - **libsql bundles cleanly into the Nitro production build** (`.output/server`, ~54 kB
   gzip) — confirms the server runs on Node in Docker without a native SQLite build.
+- **Enrichment verified around the model call, not through it.** No local Anthropic
+  credentials (no `ANTHROPIC_API_KEY`, no `ant` CLI), so the live `messages.parse` +
+  `zodOutputFormat` round-trip is UNTESTED. Everything else is verified: capture still 201s
+  with the enricher wired in (no-key silent skip), and a synthetic enrichment exercises the
+  event → projection precedence → API surface → rebuild-replay path end-to-end. **To finish
+  verifying: set `ANTHROPIC_API_KEY` and `bun run enrich:pending`, or capture with a key set.**
+  zod is v4 (`4.4.3`) and typechecks against the SDK's `zodOutputFormat` — watch for a
+  runtime mismatch on the first real call.
 
 ## Things not to do
 - Don't UPDATE/DELETE rows in `events` — the log is the source of truth.
