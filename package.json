@@ -1,0 +1,40 @@
+{
+  "name": "idea-du-jour",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Personal low-friction capture + triage system, built for agents and iPhone capture",
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build",
+    "start": "node .output/server/index.mjs",
+    "typecheck": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "bun run src/db/migrate.ts",
+    "token:mint": "bun run scripts/mint-token.ts"
+  },
+  "dependencies": {
+    "@libsql/client": "^0.17.4",
+    "@simplewebauthn/browser": "^13.3.0",
+    "@simplewebauthn/server": "^13.3.2",
+    "@tanstack/react-router": "^1.170.18",
+    "@tanstack/react-router-devtools": "^1.167.0",
+    "@tanstack/react-start": "^1.168.32",
+    "drizzle-orm": "^0.45.2",
+    "nitro": "^3.0.1-20260721-095825-c1ff6ba6",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "ulid": "^3.0.2"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@tanstack/router-plugin": "^1.168.23",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.3",
+    "drizzle-kit": "^0.31.10",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^7.0.2",
+    "vite": "^8.1.5"
+  }
+}

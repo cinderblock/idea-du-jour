@@ -114,11 +114,12 @@ App-side prerequisites before wiring 3–4: Dockerfile, `SOCKET_PATH=/run/idj/id
 
 ## Plan / steps
 - [x] Lock big decisions (stack, store, auth). Write this plan.
-- [ ] Repo scaffold: TanStack Start + Bun + Drizzle + SQLite; README.
-- [ ] DB schema + migration (`events`, `items`, `tokens`, `users`/`credentials`).
-- [ ] Event append + projection layer (write event → update projection; replay/rebuild fn).
-- [ ] `POST /api/capture` + token middleware (capture scope). Test with curl.
-- [ ] Read/query endpoints + agent-scope middleware.
+- [x] Repo scaffold: TanStack Start (Nitro) + Bun + Drizzle + libsql; README.
+- [x] DB schema + migration (`events`, `items`, `tokens`, `users`/`credentials`).
+- [x] Event append + projection layer (`captureItem` writes event + projects, atomic).
+- [x] `POST /api/capture` + token middleware (capture scope). **Verified end-to-end.**
+- [x] Read/query endpoints + agent-scope middleware (`GET /api/items`).
+- [ ] Comment / done / reopen events + `GET /api/events?since=` cursor feed. (rebuild fn still TODO)
 - [ ] WebAuthn register/login + session; guard web routes.
 - [ ] Triage PWA UI (inbox list, item detail + comments, done/tag). Manifest + SW.
 - [ ] Token management settings page.
@@ -127,7 +128,22 @@ App-side prerequisites before wiring 3–4: Dockerfile, `SOCKET_PATH=/run/idj/id
 - [ ] Dockerfile + compose; backups. Deploy to firefly (gated).
 
 ## Findings / gotchas
-- (none yet)
+- **Runtime driver = libsql, not bun:sqlite.** `bun:sqlite` only works under the Bun
+  runtime; the Nitro server bundle may run on Node. `@libsql/client` + `drizzle-orm/libsql`
+  is SQLite-compatible, file-backed (`file:./data/idj.db`), no native build, runs on both.
+- **`create-start-app --template typescript` gives a router-only SPA** (no server routes).
+  Omit `--router-only` and any `--template` to get real TanStack Start (Nitro server). The
+  full scaffold pulls `nitro` (nitro-nightly), `@tanstack/router-plugin`, tailwind v4.
+- **Server routes API (Start 1.168):** `createFileRoute('/api/x')({ server: { handlers: {
+  GET/POST: async ({ request }) => Response } } })`. No `createServerFileRoute`. Handlers
+  return native `Response` (use `Response.json(obj, { status })`).
+- **`src/routeTree.gen.ts` is generated** by the plugin on first `vite dev`/build — until it
+  exists, `tsc` errors on route paths and the `server` option. Gitignored. Typecheck clean
+  once generated.
+- **Vite dev binds IPv6 `::1` only on this box.** `curl 127.0.0.1:3000` is refused; use
+  `localhost`/`[::1]` (or PowerShell `Invoke-WebRequest`, which resolves to `::1`).
+- **Backgrounding via Git Bash `(cmd &)` doesn't survive** the tool call — the subshell is
+  reaped. Use the Bash tool's `run_in_background: true` for the dev server.
 
 ## Things not to do
 - Don't UPDATE/DELETE rows in `events` — the log is the source of truth.
