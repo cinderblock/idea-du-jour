@@ -20,11 +20,13 @@ ENV NODE_ENV=production \
 COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile --production
 
-# Built server + what the migrate-on-boot step needs.
+# Built server + what the migrate-on-boot step and admin scripts need.
 COPY --from=build /app/.output ./.output
 COPY --from=build /app/drizzle ./drizzle
 COPY --from=build /app/drizzle.config.ts ./drizzle.config.ts
 COPY --from=build /app/src ./src
+# Admin scripts (token:mint, db:rebuild, enrich:pending) — run via `docker exec`.
+COPY --from=build /app/scripts ./scripts
 
 # Data (SQLite) lives on a mounted volume.
 VOLUME ["/data"]

@@ -26,10 +26,35 @@ and progress.
   changes are gated — see `plans/idea-du-jour.md`)*
 
 ## Capture (iPhone)
-A Siri Shortcut POSTs dictated text to `/api/capture` with a *capture* bearer token, bound to
-the Action button. The endpoint accepts raw `text/plain` or JSON `{text, kind?, tags?}`.
-Leading `todo:`/`idea:`/`rem:` set the kind; `#tags` are auto-extracted; raw text is kept
-verbatim. (Full Shortcut recipe: TODO.)
+
+A Siri Shortcut POSTs dictated text to `/api/capture` with a *capture* bearer token. The
+endpoint accepts raw `text/plain` or JSON `{text, kind?, tags?}`; leading `todo:`/`idea:`/
+`rem:` set the kind, `#tags` are auto-extracted, and the raw text is kept verbatim.
+
+### Shortcut recipe — "Capture to idj"
+
+In the Shortcuts app, create a shortcut with these actions:
+
+1. **Dictate Text** — captures speech and returns it as text. (For a typed note instead, use
+   *Ask for Input → Text*. For share-sheet capture, skip this and use *Shortcut Input*.)
+2. **Get Contents of URL**
+   - **URL**: `https://idj.isozilla.com/api/capture`
+   - **Method**: `POST`
+   - **Headers**: `Authorization` = `Bearer <your capture token>`
+   - **Request Body**: `Text` → the `Dictated Text` from step 1
+     *(sent as `text/plain`; the endpoint parses keywords/tags and stores it)*
+3. *(optional)* **Show Notification** / **Vibrate** to confirm it landed.
+
+**Bind to the Action button:** Settings → Action Button → Shortcut → *Capture to idj*. Now
+hold the Action button, speak, and it lands in your inbox.
+
+**Share-sheet variant:** duplicate the shortcut, turn on *Show in Share Sheet* (accept Text +
+URLs), delete the Dictate step, and set the Request Body to *Shortcut Input* — lets you send
+selected text or a link to idj from any app.
+
+> The capture token is **write-only** (it can only append), so a shortcut leaking it can't
+> read your inbox. Mint one against prod with
+> `docker exec idj bun run token:mint capture "siri"` (or the settings UI, once built).
 
 ## Development
 
