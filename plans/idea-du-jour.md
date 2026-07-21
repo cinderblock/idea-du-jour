@@ -25,14 +25,13 @@ Non-negotiables:
 - **Runtime: Bun** (`bun:sqlite`, no native build) unless TanStack Start friction forces Node.
 - **ORM: Drizzle** (type-safe, first-class SQLite + bun:sqlite).
 
-## Open questions for the user
-1. **Domain/hostname** on firefly? e.g. `idea.<domain>`, `todo.<domain>`, `brain.<domain>`.
-   (Needed for Siri shortcut + Caddy; not blocking local dev.) Recommendation: short, memorable.
-2. **"Kinds" + keyword syntax** for v1. Proposal: everything is an *item*; default kind `note`.
-   Lenient parse of leading keyword: `todo:`/`t:` → task, `idea:` → idea, `memory:`/`rem:` →
-   memory. `#tags` extracted anywhere. Raw text always stored verbatim regardless. OK?
-3. **Backups**: Litestream (continuous → object storage) vs. cron `sqlite3 .backup`.
-   Recommendation: Litestream once hosted; cron is fine early.
+## Answers locked (2026-07-21)
+1. **Hostname: `idj.isozilla.com`** — Cloudflare-proxied (orange cloud), mirroring the
+   existing `vikunja.isozilla.com`. See "Deployment via ops repo" below.
+2. **Keyword syntax: proposal accepted for v1** — everything is an *item*, default kind
+   `note`; leading `todo:`/`t:` → task, `idea:` → idea, `memory:`/`rem:` → memory;
+   `#tags` extracted anywhere; raw text always stored verbatim.
+3. **Backups: deferred** (low priority). Revisit Litestream once hosted.
 
 ## Architecture
 
@@ -79,10 +78,39 @@ Non-negotiables:
 - A skill that calls the *agent* API: `GET /api/items?status=open` for recent/unfinished,
   posts comments back. Lives in skills dir; token from local config/env, not committed.
 
-### Deployment (LATER — gated by infra authorization rules)
-- Docker image (Bun), SQLite on a mounted volume, behind firefly's Caddy (HTTPS).
-- **Any firefly/Caddy/DNS change requires explicit per-change authorization and goes
-  through the ops repo** (`~/git/Personal Projects/ops`). Do not touch infra directly.
+### Deployment via ops repo (LATER — gated; nothing applied yet)
+Firefly has two app-hosting patterns in ops. We mirror the **socket-based isolated runner**
+(bins / camptool) — it's the current gold standard and fits idj exactly: a Bun app + SQLite
+data volume + a unix socket shared with Caddy, plus a self-hosted GitHub runner for
+push-to-deploy. No published TCP port, no docker socket, no host mounts. The `bins` app
+(Node + SQLite via DATABASE_PATH + SOCKET_PATH) is a near-identical template.
+
+Ops changes required (all staged for review; **infra rules: per-change authorization,
+CI-only deploys, `bun run sync` dry-run before committing CF changes, don't touch servers
+directly**). Note: ops repo is currently on branch `ask-worker`.
+
+1. **Cloudflare DNS** — `cloudflare/config/isozilla/isozilla.com.yaml`, firefly entry,
+   add under `proxies:`:  `    idj.isozilla.com: idea-du-jour capture/todo app on docker`
+2. **Caddy site** — new `servers/firefly/sites.d/idj.isozilla.com.caddy`:
+   ```
+   # idj.isozilla.com — idea-du-jour capture/triage app (unix socket, bins pattern).
+   idj.isozilla.com {
+       request_body { max_size 20MB }
+       reverse_proxy unix//run/idj/idj.sock {
+           header_up X-Real-IP {client_ip}
+           header_up X-Forwarded-Proto https
+           header_up X-Forwarded-For {client_ip}
+       }
+   }
+   ```
+3. **Caddy compose** — `servers/firefly/docker-compose.yml`: add `idj_sock:/run/idj` volume
+   mount + external `idj_sock` volume (mirror `bins_sock`).
+4. **Runner stack** — `servers/firefly/idj-runner/compose.yml` + `ensure-idj-runner.sh`
+   (clone of bins-runner) + install job in the ops workflow. Needs the idj app repo to
+   publish an image to ghcr and host a self-hosted runner (labels `firefly,idj`).
+
+App-side prerequisites before wiring 3–4: Dockerfile, `SOCKET_PATH=/run/idj/idj.sock`,
+`DATABASE_PATH` on a persisted volume, a deploy workflow. WebAuthn RP ID = `idj.isozilla.com`.
 
 ## Plan / steps
 - [x] Lock big decisions (stack, store, auth). Write this plan.
