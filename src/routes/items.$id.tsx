@@ -1,10 +1,14 @@
 import { useState } from 'react'
-import { Link, createFileRoute, useRouter } from '@tanstack/react-router'
+import { Link, createFileRoute, redirect, useRouter } from '@tanstack/react-router'
 import type { Event } from '../db/schema'
-import { addComment, fetchItem, setItemStatus } from '../server/webapi'
+import { addComment, fetchItem, getAuth, setItemStatus } from '../server/webapi'
 import { KindBadge, StatusDot, Tags, relativeTime } from '../ui/util'
 
 export const Route = createFileRoute('/items/$id')({
+  beforeLoad: async () => {
+    const { userId } = await getAuth()
+    if (!userId) throw redirect({ to: '/login' })
+  },
   loader: ({ params }) => fetchItem({ data: { id: params.id } }),
   component: ItemDetail,
 })

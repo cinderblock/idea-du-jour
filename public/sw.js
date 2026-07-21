@@ -3,8 +3,10 @@
 // offline fallback. Cache-first for static assets. Never caches /api or the
 // server-function transport (/_serverFn) — those must always hit the network.
 
-const CACHE = 'idj-v1'
-const SHELL = ['/', '/icon-192.png', '/icon-512.png', '/manifest.json']
+const CACHE = 'idj-v2'
+// Don't precache '/' — it redirects to /login when unauthenticated, and a
+// redirected response can't be cached. It's populated opportunistically below.
+const SHELL = ['/icon-192.png', '/icon-512.png', '/manifest.json']
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -35,7 +37,10 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(req)
         .then((res) => {
-          caches.open(CACHE).then((c) => c.put('/', res.clone())).catch(() => {})
+          // Only cache a real, non-redirected 200 for the app shell.
+          if (res.ok && !res.redirected) {
+            caches.open(CACHE).then((c) => c.put('/', res.clone())).catch(() => {})
+          }
           return res
         })
         .catch(() => caches.match('/').then((r) => r || caches.match(req))),

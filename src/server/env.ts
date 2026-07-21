@@ -5,9 +5,14 @@
  */
 export const env = {
   databaseUrl: process.env.DATABASE_URL ?? 'file:./data/idj.db',
-  /** WebAuthn relying-party id — the site's registrable domain (auth phase). */
+  /** WebAuthn relying-party id — the site's registrable domain. */
   rpId: process.env.RP_ID ?? 'localhost',
   rpName: process.env.RP_NAME ?? 'idea-du-jour',
+  /** Full origin the browser sees — must match exactly for WebAuthn verification. */
+  rpOrigin: process.env.RP_ORIGIN ?? 'http://localhost:3000',
+  /** HMAC secret for signing session + challenge cookies. MUST be set in prod. */
+  sessionSecret:
+    process.env.SESSION_SECRET ?? 'dev-insecure-session-secret-change-me',
 
   /**
    * Agent enrichment: a captured item is asynchronously classified/tagged by

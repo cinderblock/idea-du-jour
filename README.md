@@ -15,7 +15,9 @@ and progress.
 - **Stack:** TanStack Start (React, SSR via Nitro) — one deployable serving the PWA and the API.
 - **Store:** SQLite (via libsql), **append-only event log** as source of truth + a rebuildable
   `items` projection for fast reads. Drizzle ORM.
-- **Web auth:** Passkey / WebAuthn (Face ID). *(auth phase — not wired yet)*
+- **Web auth:** Passkey / WebAuthn (Face ID). Single-user; first visit creates a passkey,
+  after that the inbox is locked to it. Session is a signed cookie; web routes + server
+  functions require it. *(Ceremony needs a real authenticator to exercise — see plan.)*
 - **API auth:** bearer tokens — *capture* (write-only, for Siri) and *agent* (read + comment).
 - **Agent enrichment:** captures are asynchronously classified/tagged/summarized by Claude
   (`claude-sonnet-5` via the Anthropic SDK) and written back as an `item.enriched` event —

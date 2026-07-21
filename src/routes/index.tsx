@@ -1,11 +1,21 @@
 import { useState } from 'react'
-import { Link, createFileRoute, useNavigate, useRouter } from '@tanstack/react-router'
-import { fetchItems, webCapture } from '../server/webapi'
+import {
+  Link,
+  createFileRoute,
+  redirect,
+  useNavigate,
+  useRouter,
+} from '@tanstack/react-router'
+import { fetchItems, getAuth, webCapture } from '../server/webapi'
 import { KindBadge, StatusDot, Tags, relativeTime } from '../ui/util'
 
 type Filter = 'open' | 'all' | 'done'
 
 export const Route = createFileRoute('/')({
+  beforeLoad: async () => {
+    const { userId } = await getAuth()
+    if (!userId) throw redirect({ to: '/login' })
+  },
   validateSearch: (search: Record<string, unknown>): { filter?: Filter } => {
     const f = search.filter
     return f === 'all' || f === 'done' ? { filter: f } : {}
@@ -25,9 +35,21 @@ function Inbox() {
 
   return (
     <main className="mx-auto min-h-screen max-w-2xl px-4 pb-24 pt-6">
-      <header className="mb-4">
-        <h1 className="text-2xl font-bold tracking-tight">idea-du-jour</h1>
-        <p className="text-sm text-gray-500">Capture now, triage later.</p>
+      <header className="mb-4 flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">idea-du-jour</h1>
+          <p className="text-sm text-gray-500">Capture now, triage later.</p>
+        </div>
+        <button
+          type="button"
+          onClick={async () => {
+            await fetch('/api/auth/logout', { method: 'POST' })
+            navigate({ to: '/login' })
+          }}
+          className="mt-1 text-xs text-gray-400 transition hover:text-gray-700 dark:hover:text-gray-200"
+        >
+          Sign out
+        </button>
       </header>
 
       <QuickCapture />

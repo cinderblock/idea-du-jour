@@ -63,11 +63,22 @@ Non-negotiables:
 - `GET  /api/events?since=<seq>` — raw feed for agents (cursor pagination).
 - Web session routes (passkey-guarded) reuse the same handlers.
 
-### Auth
-- Web: WebAuthn register (first-run bootstrap creates the single user) → passkey login →
-  secure session cookie. `@simplewebauthn/server` + `/browser`.
-- Tokens: `tokens` table, value **hashed** (store prefix + hash), `scope`, `label`,
-  `created_ts`, `last_used_ts`. Manage from a settings page.
+### Auth (built)
+- **Web = passkeys.** `@simplewebauthn/server` ceremonies as API routes under
+  `/api/auth/*` (register options/verify, login options/verify, logout, me). Single-user:
+  first `register/options` with no user bootstraps; once a user exists, unauthenticated
+  registration is closed (adding more passkeys requires a session).
+- **Session = HMAC-signed cookie** (`idj_session`, 30d), stateless — no session store.
+  WebAuthn challenge carried in a separate short-lived signed cookie (`idj_webauthn`, 5m).
+  Cookies signed with `SESSION_SECRET`. Writes set `Set-Cookie` on the route Response;
+  reads via ambient `getCookie` (`currentUserId`) or raw request (`userIdFromRequest`).
+- **Gating:** web routes (`/`, `/items/$id`) `beforeLoad` → `getAuth()` → `redirect('/login')`
+  if no session; every web server function calls `requireUserId()` (guards the RPC endpoints
+  directly, not just the UI). `/login` is public. The token API (`/api/capture`, `/api/items`,
+  `/api/events`) is unchanged — bearer tokens for Siri/agents, independent of the session.
+- **Config:** `RP_ID` (localhost dev / idj.isozilla.com prod), `RP_ORIGIN`, `SESSION_SECRET`.
+- Tokens: `tokens` table, value **hashed** (prefix + hash), `scope`, `label`, `created_ts`,
+  `last_used_ts`. Manage from a settings page (TODO), alongside passkey management.
 
 ### iPhone capture
 - Siri Shortcut: "Get Contents of URL" → POST `https://<host>/api/capture`,
@@ -153,8 +164,9 @@ App-side prerequisites before wiring 3–4: Dockerfile, `SOCKET_PATH=/run/idj/id
 - [x] Triage PWA UI (inbox + quick-capture + filters; item detail + comments + done/reopen).
 - [x] PWA installability: manifest.json, service worker, iOS meta, generated PNG icons.
 - [x] Agent enrichment: async Claude classify/tag/summarize → `item.enriched` event.
-- [ ] WebAuthn register/login + session; guard web routes AND the web server functions.
-- [ ] Token management settings page.
+- [x] WebAuthn register/login + signed-cookie session; web routes redirect + server
+      functions `requireUserId`. **Passkey ceremony untested (needs a real authenticator).**
+- [ ] Token management settings page (+ passkey management: list/add/remove).
 - [ ] Siri Shortcut recipe (documented in README).
 - [x] Claude triage skill (`.claude/skills/idj-triage/`) — whole-inbox reasoning via agent API.
 - [ ] Dockerfile + compose; backups. Deploy to firefly (gated).
@@ -190,6 +202,21 @@ App-side prerequisites before wiring 3–4: Dockerfile, `SOCKET_PATH=/run/idj/id
   (malformed results, timeouts) during this session.
 - **libsql bundles cleanly into the Nitro production build** (`.output/server`, ~54 kB
   gzip) — confirms the server runs on Node in Docker without a native SQLite build.
+- **Server-side request/cookie helpers** (`getCookie`/`setCookie`/`getRequest`/`useSession`,
+  h3-style) are re-exported through `@tanstack/react-start/server` (→ react-start-server →
+  start-server-core). Usable in server functions AND route handlers via ambient ALS context.
+- **SimpleWebAuthn v13 byte-array typing:** `WebAuthnCredential.publicKey` /
+  `generateRegistrationOptions.userID` want `Uint8Array<ArrayBuffer>`, but `Buffer.from(...)`
+  yields `Uint8Array<ArrayBufferLike>` (TS rejects it). Use `Uint8Array.from(buf)` and
+  annotate the return `Uint8Array<ArrayBuffer>`.
+- **Service worker can't precache `/`** now that it redirects to `/login` when unauthed —
+  a redirected response throws on `cache.put`. Dropped `/` from the precache SHELL; the nav
+  handler caches it opportunistically only when `res.ok && !res.redirected` (bumped `idj-v2`).
+- **Auth verified around the ceremony, not through it.** No WebAuthn authenticator available
+  here, so register→login with a real passkey is UNTESTED. Verified: `/` redirects (307) when
+  unauthed, `/login` is public, `/api/auth/me` reports no user, and register/login `options`
+  return valid challenges + set the signed cookie. **To finish: test on a device with a
+  passkey (iOS Face ID / a laptop), or drive a CDP virtual authenticator.**
 - **Enrichment verified around the model call, not through it.** No local Anthropic
   credentials (no `ANTHROPIC_API_KEY`, no `ant` CLI), so the live `messages.parse` +
   `zodOutputFormat` round-trip is UNTESTED. Everything else is verified: capture still 201s
