@@ -1,0 +1,22 @@
+node_modules/
+dist/
+.output/
+.vinxi/
+.nitro/
+.tanstack/
+
+# Secrets & local config
+.env
+.env.*
+!.env.example
+*.local
+
+# SQLite data — never commit the brain
+*.db
+*.db-wal
+*.db-shm
+data/
+
+# OS / editor
+.DS_Store
+Thumbs.db
