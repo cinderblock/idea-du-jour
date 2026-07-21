@@ -1,6 +1,15 @@
 import { sql } from 'drizzle-orm'
 import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
+/** JSON-serializable value — used for event payloads so they cross the wire cleanly. */
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | Json[]
+  | { [key: string]: Json }
+
 /**
  * events — the append-only source of truth. NEVER UPDATE or DELETE a row here.
  * Every capture, edit, comment, completion, or deletion is a new immutable row.
@@ -16,7 +25,7 @@ export const events = sqliteTable('events', {
   tokenId: text('token_id'),
   payload: text('payload', { mode: 'json' })
     .notNull()
-    .$type<Record<string, unknown>>(),
+    .$type<Record<string, Json>>(),
 })
 
 /**

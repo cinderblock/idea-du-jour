@@ -119,9 +119,11 @@ App-side prerequisites before wiring 3–4: Dockerfile, `SOCKET_PATH=/run/idj/id
 - [x] Event append + projection layer (`captureItem` writes event + projects, atomic).
 - [x] `POST /api/capture` + token middleware (capture scope). **Verified end-to-end.**
 - [x] Read/query endpoints + agent-scope middleware (`GET /api/items`).
-- [ ] Comment / done / reopen events + `GET /api/events?since=` cursor feed. (rebuild fn still TODO)
-- [ ] WebAuthn register/login + session; guard web routes.
-- [ ] Triage PWA UI (inbox list, item detail + comments, done/tag). Manifest + SW.
+- [x] Comment / done / reopen events + `GET /api/events?since=` cursor feed + `rebuildProjection`.
+- [x] Web server functions (`src/server/webapi.ts`) — first-party read/write, no token.
+- [x] Triage PWA UI (inbox + quick-capture + filters; item detail + comments + done/reopen).
+- [x] PWA installability: manifest.json, service worker, iOS meta, generated PNG icons.
+- [ ] WebAuthn register/login + session; guard web routes AND the web server functions.
 - [ ] Token management settings page.
 - [ ] Siri Shortcut recipe (documented in README).
 - [ ] Claude skill hitting the agent API.
@@ -144,6 +146,20 @@ App-side prerequisites before wiring 3–4: Dockerfile, `SOCKET_PATH=/run/idj/id
   `localhost`/`[::1]` (or PowerShell `Invoke-WebRequest`, which resolves to `::1`).
 - **Backgrounding via Git Bash `(cmd &)` doesn't survive** the tool call — the subshell is
   reaped. Use the Bash tool's `run_in_background: true` for the dev server.
+- **Web UI uses `createServerFn`, not the token API.** GET/POST server functions in
+  `src/server/webapi.ts` call the domain layer directly on the server. The public token API
+  (`/api/*`) is only for Siri + external agents. **Auth gap:** these server functions are
+  currently UNGUARDED — the WebAuthn phase must gate them (and the web routes) or anyone who
+  reaches the site can read/write. Fine for local dev; must land before firefly exposure.
+- **Server-function RPC is CSRF-protected + seroval-framed.** Endpoint is
+  `/_serverFn/<base64 fileId>` (POST). Requires an `Origin` header matching host (else 403)
+  and a seroval-encoded body (`toJSONAsync({data})`), returning a framed result. Verified
+  webCapture over the wire this way when the browser preview tool was down.
+- **Dev server doesn't pick up files added to `public/` after boot** — they 404 until
+  restart (rescan). Not an extension/MIME issue. Also: the preview/browser MCP was flaky
+  (malformed results, timeouts) during this session.
+- **libsql bundles cleanly into the Nitro production build** (`.output/server`, ~54 kB
+  gzip) — confirms the server runs on Node in Docker without a native SQLite build.
 
 ## Things not to do
 - Don't UPDATE/DELETE rows in `events` — the log is the source of truth.

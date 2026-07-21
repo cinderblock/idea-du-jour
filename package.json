@@ -12,7 +12,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "bun run src/db/migrate.ts",
     "token:mint": "bun run scripts/mint-token.ts",
-    "db:rebuild": "bun run scripts/rebuild.ts"
+    "db:rebuild": "bun run scripts/rebuild.ts",
+    "icons:gen": "bun run scripts/gen-icons.ts"
   },
   "dependencies": {
     "@libsql/client": "^0.17.4",

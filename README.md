@@ -53,9 +53,40 @@ curl "http://localhost:3000/api/items?status=open" \
 Other scripts: `bun run typecheck`, `bun run db:generate` (regenerate migrations after a
 schema change), `bun run build`.
 
+## Web UI
+
+A mobile-first triage PWA (installable; add to Home Screen on iOS):
+- **Inbox** (`/`) — quick-capture box, `open`/`all`/`done` filters, item cards.
+- **Item detail** (`/items/$id`) — full body, activity/comment thread, add comment,
+  mark done / reopen.
+
+The UI reads and writes through first-party **server functions** (`src/server/webapi.ts`)
+that call the domain layer directly — no bearer token. The token API below is for Siri +
+external agents. *(Note: the web UI is not yet auth-gated — that's the WebAuthn phase.)*
+
+## Token API (Siri + agents)
+
+| Method + path | Scope | Purpose |
+|---|---|---|
+| `POST /api/capture` | capture | Append an item (raw text or JSON). |
+| `GET /api/items?status=&kind=&limit=` | agent | List/query items. |
+| `GET /api/items/:id` | agent | One item + its full event history. |
+| `POST /api/items/:id/comment` | agent | Add a comment (raw text or `{text}`). |
+| `POST /api/items/:id/done` · `/reopen` | agent | Change status. |
+| `GET /api/events?since=<seq>` | agent | Append-only cursor feed (`nextCursor`). |
+
+## Development
+
+See scripts: `bun run dev` · `typecheck` · `build` · `db:migrate` · `db:generate` ·
+`db:rebuild` (replay log → projection) · `token:mint <capture|agent> "<label>"` ·
+`icons:gen` (regenerate PWA icons).
+
 ### Layout
-- `src/db/` — Drizzle schema, libsql client, migrator.
-- `src/server/` — `events.ts` (append + project), `tokens.ts` (bearer auth/scopes),
-  `capture.ts` (keyword/tag parsing), `env.ts`.
-- `src/routes/api/` — `capture.ts` (POST, capture scope), `items.ts` (GET, agent scope).
-- `scripts/mint-token.ts` — mint API tokens.
+- `src/db/` — Drizzle schema (`events`, `items`, `tokens`, `users`, `credentials`),
+  libsql client, migrator.
+- `src/server/` — `events.ts` (append + project + rebuild), `tokens.ts` (bearer
+  auth/scopes), `capture.ts` (keyword/tag parsing), `webapi.ts` (web server functions),
+  `env.ts`.
+- `src/routes/` — web UI (`index.tsx`, `items.$id.tsx`) + `api/` token endpoints.
+- `src/ui/` — presentation helpers. `scripts/` — token mint, projection rebuild, icon gen.
+- `public/` — PWA manifest, service worker, icons.
