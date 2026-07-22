@@ -92,7 +92,13 @@ A mobile-first triage PWA (installable; add to Home Screen on iOS):
 
 The UI reads and writes through first-party **server functions** (`src/server/webapi.ts`)
 that call the domain layer directly — no bearer token. The token API below is for Siri +
-external agents. *(Note: the web UI is not yet auth-gated — that's the WebAuthn phase.)*
+external agents. The web UI is passkey-gated (WebAuthn).
+
+**Offline:** the installed PWA keeps working with no network — captures queue locally
+(`localStorage`) and sync when you reconnect (on the `online` event / next open), the last
+inbox is cached for offline reads, and queued items show as "pending". iOS has no Background
+Sync, so syncing happens when the app is next open + online (nothing is lost). Note that
+**Siri Shortcut capture needs a live connection** — offline capture is a PWA-only feature.
 
 ## Token API (Siri + agents)
 

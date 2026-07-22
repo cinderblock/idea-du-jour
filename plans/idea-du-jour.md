@@ -99,6 +99,21 @@ Non-negotiables:
 - Future: graduate to the Claude Agent SDK so the enricher can dedupe/link related items
   and split brain-dumps — for now it's a single structured call per item.
 
+### Offline (PWA) — built
+- **Capture never fails offline.** `QuickCapture` tries `webCapture`; on any failure it queues
+  the raw text in `localStorage` (`src/ui/offline.ts`), shows it as a dashed "pending" card, and
+  flushes on the `online` event + on inbox mount. Order-preserving flush stops at the first
+  failure (keeps the rest queued). Verified: 12/12 unit assertions.
+- **Offline reads + entry.** Loader caches the inbox (`localStorage`) and falls back to it when
+  the fetch fails; route `beforeLoad` guards are resilient — on a network error they trust a
+  durable `idj:authed` marker instead of bouncing to `/login` (online, an unauthed user is still
+  redirected — verified 307). The service worker already serves the cached shell + assets offline.
+- **iOS caveat (documented):** no Background Sync on iOS Safari, so the queue flushes when the
+  app is next open + online, not in the background. No data loss either way. **Siri Shortcut
+  capture is online-only** (HTTP POST can't queue) — offline capture is a PWA-only capability.
+- Not exercised end-to-end in a browser here (needs a virtual authenticator + network toggle):
+  **device test** = install PWA, airplane mode, capture (see "pending"), re-enable (it syncs).
+
 ### Claude triage skill (built)
 - `.claude/skills/idj-triage/` — a **project skill** (committed, versioned with the API it
   calls). Invoked in Claude Code ("triage my inbox"), it reads `GET /api/items?status=open`,
