@@ -40,11 +40,20 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # firefly's ops deploy pulls `:latest` on its next run (weekly cron, on any
-      # ops push, or a manual `gh workflow run deploy.yml -R <owner>/ops`).
-      # Uncomment to auto-trigger it here — needs a PAT with Actions:write on ops.
-      # - name: Trigger firefly deploy
-      #   if: github.ref == 'refs/heads/main'
-      #   env:
-      #     GH_TOKEN: ${{ secrets.OPS_DISPATCH_TOKEN }}
-      #   run: gh workflow run deploy.yml -R <owner>/ops
+      # Push-to-deploy: once the new image is published, trigger firefly's ops
+      # deploy so it pulls the fresh :latest (the stack pattern doesn't auto-pull
+      # on an app-repo push). Needs a fine-grained PAT with Actions: read/write on
+      # cinderblock/ops, stored as the idj repo secret OPS_DISPATCH_TOKEN. Skips
+      # cleanly (doesn't fail the build) when the secret isn't set.
+      - name: Trigger firefly deploy
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        env:
+          GH_TOKEN: ${{ secrets.OPS_DISPATCH_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "OPS_DISPATCH_TOKEN not set — skipping auto-deploy."
+            echo "Deploy manually with: gh workflow run deploy.yml -R cinderblock/ops"
+            exit 0
+          fi
+          gh workflow run deploy.yml -R cinderblock/ops
+          echo "Dispatched firefly deploy (ops)."

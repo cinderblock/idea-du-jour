@@ -58,8 +58,18 @@ Committing 2 + 3 to ops `master` triggers the ops deploy workflow (it runs on
 4. Update the triage skill's `.env.local`: `IDJ_BASE_URL=https://idj.isozilla.com`
    and a fresh agent token minted against prod.
 
-## Updating after go-live
+## Updating after go-live (push-to-deploy)
 
-Push idj → CI republishes `:latest`. firefly picks it up on its next ops deploy
-(weekly cron, any ops push, or `gh workflow run deploy.yml -R <owner>/ops`). To
-auto-trigger on idj push, wire the optional dispatch step in `build.yml`.
+Push idj → CI (`build.yml`) republishes `:latest` **and dispatches firefly's ops deploy**,
+which pulls the new image. This is the stack-pattern equivalent of bins' push-to-deploy
+(without a self-hosted runner in the container).
+
+**One-time setup:** the dispatch needs a token, because a repo's `GITHUB_TOKEN` can't trigger
+workflows in another repo. Create a **fine-grained PAT** with **Actions: Read and write** (and
+**Metadata: Read**) scoped to `cinderblock/ops`, and add it as the idj repo secret
+**`OPS_DISPATCH_TOKEN`**. Until it's set, the dispatch step skips cleanly and you deploy
+manually with `gh workflow run deploy.yml -R cinderblock/ops`.
+
+> Note: a dispatch re-runs the full server deploy (all servers with online runners), which is
+> idempotent — only changed stacks recreate, and `docker compose pull` is fast. That's fine for
+> this scale; if it ever isn't, split idj into its own lighter deploy workflow.
