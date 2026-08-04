@@ -95,5 +95,8 @@ jobs:
           set -euo pipefail
           cd "$APP_ROOT/releases"
           current="$(basename "$(readlink -f "$APP_ROOT/current")")"
-          ls -1t | grep -v "^${current}$" | tail -n +5 | xargs -r rm -rf
+          # `|| true` on the grep: it exits 1 when it filters everything out
+          # (e.g. the very first deploy, where `current` is the only release),
+          # and under `pipefail` that would fail the step for no reason.
+          { ls -1t | grep -v "^${current}$" || true; } | tail -n +5 | xargs -r rm -rf
           echo "releases kept: $(ls -1 | wc -l)"

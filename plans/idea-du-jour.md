@@ -184,7 +184,18 @@ repo — the established mechanism (`servers/lib/ensure-github-runner.sh` docume
 - **Retired:** `Dockerfile`, `.github/workflows/build.yml` (ghcr image deploys),
   `servers/firefly/stacks/idj/`, and the `OPS_DISPATCH_TOKEN` idea.
 - **User setup required in ops:** environment `idj-runner` + secret `IDJ_RUNNER_PAT`
-  (fine-grained PAT, Administration:RW on `cinderblock/idea-du-jour`).
+  (fine-grained PAT, Administration:RW on `cinderblock/idea-du-jour`). **DONE** — env created
+  by Claude, PAT set by Cameron 2026-08-04.
+- **SHIPPED 2026-08-04.** ops `ef7369d`; first self-deploy served `f52c7fb` with data intact
+  (`hasUser:true`). Cutover gotchas hit and fixed:
+  - every `containers/*` dir must ship `prepare-dependencies.sh` answering `--list` (returns
+    `{}` here) or the build pipeline fails; and Windows drops exec bits — `git update-index
+    --chmod=+x` the shell scripts to match bins.
+  - the retired stack container came back up after `docker stop` (daemon restart +
+    `unless-stopped`); it is no longer ops-managed, so it was `docker rm -f`'d by hand.
+    `idj_data` volume + `~/idj-backups/*.tgz` on firefly retained as rollback.
+  - prune step: `grep -v` exits 1 when it filters everything out, and `pipefail` turns that
+    into a failed deploy on the first release — wrap in `{ ... || true; }`.
 
 ## Plan / steps
 - [x] Lock big decisions (stack, store, auth). Write this plan.
