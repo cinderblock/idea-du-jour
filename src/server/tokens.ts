@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto'
-import { eq } from 'drizzle-orm'
+import { desc, eq } from 'drizzle-orm'
 import { db } from '../db/client'
 import { tokens, type Token } from '../db/schema'
 
@@ -30,6 +30,17 @@ export async function mintToken(scope: Scope, label: string) {
   }
   await db.insert(tokens).values(row)
   return { secret, token: row }
+}
+
+/** Token metadata for the settings UI. Secrets are never retrievable (hash only). */
+export async function listTokens() {
+  const rows = await db.select().from(tokens).orderBy(desc(tokens.createdTs))
+  return rows.map(({ hash: _hash, ...rest }) => rest)
+}
+
+/** Revoke a token — it stops authenticating immediately (row kept for audit). */
+export async function revokeToken(id: string) {
+  await db.update(tokens).set({ revokedTs: Date.now() }).where(eq(tokens.id, id))
 }
 
 function parseBearer(request: Request): string | null {

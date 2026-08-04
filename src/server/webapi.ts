@@ -1,5 +1,6 @@
 import { createServerFn } from '@tanstack/react-start'
 import { currentUserId, requireUserId } from './auth'
+import { listTokens, mintToken, revokeToken, type Scope } from './tokens'
 import { enqueueEnrichment } from './enrich'
 import {
   captureItem,
@@ -72,3 +73,34 @@ export const setItemStatus = createServerFn({ method: 'POST' })
 export const getAuth = createServerFn({ method: 'GET' }).handler(async () => {
   return { userId: currentUserId() }
 })
+
+/**
+ * Mint an API token from the settings UI. The secret is returned ONCE and never
+ * stored in plaintext (only a hash), so the caller must copy it immediately.
+ */
+export const createToken = createServerFn({ method: 'POST' })
+  .inputValidator((data: { scope: Scope; label: string }) => data)
+  .handler(async ({ data }) => {
+    requireUserId()
+    const label = data.label.trim() || 'unnamed'
+    if (data.scope !== 'capture' && data.scope !== 'agent') {
+      throw new Error('invalid scope')
+    }
+    const { secret, token } = await mintToken(data.scope, label)
+    return { secret, id: token.id, scope: token.scope, label: token.label }
+  })
+
+/** Existing tokens (metadata only — secrets are never retrievable). */
+export const fetchTokens = createServerFn({ method: 'GET' }).handler(async () => {
+  requireUserId()
+  return { tokens: await listTokens() }
+})
+
+/** Revoke a token by id. */
+export const revokeTokenFn = createServerFn({ method: 'POST' })
+  .inputValidator((data: { id: string }) => data)
+  .handler(async ({ data }) => {
+    requireUserId()
+    await revokeToken(data.id)
+    return { ok: true }
+  })

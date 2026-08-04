@@ -105,17 +105,25 @@ function Inbox() {
           <h1 className="text-2xl font-bold tracking-tight">idea-du-jour</h1>
           <p className="text-sm text-gray-500">Capture now, triage later.</p>
         </div>
-        <button
-          type="button"
-          onClick={async () => {
-            setAuthed(false)
-            await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {})
-            navigate({ to: '/login' })
-          }}
-          className="mt-1 text-xs text-gray-400 transition hover:text-gray-700 dark:hover:text-gray-200"
-        >
-          Sign out
-        </button>
+        <div className="mt-1 flex gap-3">
+          <Link
+            to="/setup"
+            className="text-xs text-gray-400 transition hover:text-gray-700 dark:hover:text-gray-200"
+          >
+            Setup
+          </Link>
+          <button
+            type="button"
+            onClick={async () => {
+              setAuthed(false)
+              await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {})
+              navigate({ to: '/login' })
+            }}
+            className="text-xs text-gray-400 transition hover:text-gray-700 dark:hover:text-gray-200"
+          >
+            Sign out
+          </button>
+        </div>
       </header>
 
       {(showOffline || pending.length > 0) && (
