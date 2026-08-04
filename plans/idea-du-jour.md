@@ -134,8 +134,13 @@ Non-negotiables:
   this volume). Auto-enrich stays optional/off-without-key; the skill is the primary path.
 
 ### Deployment via ops repo (LATER — gated; nothing applied yet)
-**Chosen pattern: ops-managed "stack"** (like `nginx-cache`), NOT the socket/runner pattern
-(bins/camptool). Firefly's `deploy.sh` iterates `servers/firefly/stacks/*/compose.yml`,
+**SUPERSEDED (2026-07-22): migrated to the house runner pattern — see "Deploy v2" below.**
+The stack shipped the first deploy but had no push-to-deploy; ops owns the pull, so an idj
+push did nothing until an ops deploy ran. Rather than bolt on a cross-repo dispatch PAT, we
+moved to the pattern the other 8 apps already use.
+
+~~**Chosen pattern: ops-managed "stack"** (like `nginx-cache`), NOT the socket/runner pattern
+(bins/camptool).~~ Firefly's `deploy.sh` iterates `servers/firefly/stacks/*/compose.yml`,
 generates `.env` from each stack's `env.json` (auto-generates `SESSION_SECRET`), and does
 `docker compose pull` + `up -d`. Simpler than a self-hosted runner-in-container, and needs
 **no change to Caddy's compose** — Caddy is `network_mode: host`, so it proxies straight to a
@@ -156,6 +161,30 @@ Ops changes (GATED — per-change auth; `bun run sync` dry-run before CF commit)
 Prereqs needing the user: (a) idj on GitHub (`cinderblock/idea-du-jour` assumed — image name);
 (b) **make the ghcr package public** (stack pull runs without registry login); (c) enrichment
 stays OFF in prod (no `ANTHROPIC_API_KEY`) — triage skill is the primary path.
+
+### Deploy v2 — house runner pattern (bins/camptool/smtp-bridge)
+Why: consistency ("10 deploy patterns is a headache") + real push-to-deploy with **no
+cross-repo token from idj**. ops holds a per-app PAT and registers a runner INTO the app
+repo — the established mechanism (`servers/lib/ensure-github-runner.sh` documents it).
+
+- **Shape:** one container on firefly = GH runner + the app. Push → `deploy.yml` runs on
+  `[self-hosted, idj]` *inside* that container → build, stage `/srv/idj/releases/<sha>`,
+  `ln -sfn current`, `touch restart` → supervisord restarts app → health check polls
+  `/api/version` until it reports the pushed SHA. Releases pruned to last 5.
+- **socat bridge (idj-only deviation):** bins binds its own unix socket via
+  `Bun.serve({unix})`; idj is served by **Nitro**, whose listener takes only a TCP port
+  (verified: node preset, bun preset, and srvx all lack unix support). socat maps
+  `/run/idj/idj.sock` → `127.0.0.1:3000` inside the container, so the external contract
+  (socket volume shared with Caddy, zero published ports) matches bins exactly.
+- **SESSION_SECRET is generated once and REUSED** by `ensure-idj-runner.sh` (re-generating
+  it would invalidate the passkey session cookie on every deploy).
+- **Data migration built in:** `ensure-idj-runner.sh` copies `idj.db` from the retired
+  stack's `idj_data` volume into `idj_app:/srv/idj/data` on first run, guarded so it never
+  clobbers live data.
+- **Retired:** `Dockerfile`, `.github/workflows/build.yml` (ghcr image deploys),
+  `servers/firefly/stacks/idj/`, and the `OPS_DISPATCH_TOKEN` idea.
+- **User setup required in ops:** environment `idj-runner` + secret `IDJ_RUNNER_PAT`
+  (fine-grained PAT, Administration:RW on `cinderblock/idea-du-jour`).
 
 ## Plan / steps
 - [x] Lock big decisions (stack, store, auth). Write this plan.

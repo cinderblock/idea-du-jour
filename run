@@ -1,0 +1,21 @@
+#!/bin/bash
+# Release entrypoint, executed by supervisord as /srv/idj/current/run inside the
+# idj-runner container (see ops: containers/idj-runner/supervisord.conf).
+#
+# Applies pending migrations, then serves the built Nitro output. Listens on a
+# container-local TCP port; the container's socat bridge exposes it to Caddy as
+# /run/idj/idj.sock (Nitro cannot bind a unix socket itself).
+set -euo pipefail
+
+cd "$(dirname "$0")"
+
+: "${PORT:=3000}"
+: "${HOST:=127.0.0.1}"
+: "${DATABASE_URL:=file:/srv/idj/data/idj.db}"
+export PORT HOST DATABASE_URL
+
+echo "idj: applying migrations ($(cat BUILD_SHA 2>/dev/null || echo dev))"
+bun run src/db/migrate.ts
+
+echo "idj: starting server on ${HOST}:${PORT}"
+exec bun .output/server/index.mjs

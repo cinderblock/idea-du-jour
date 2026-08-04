@@ -1,0 +1,99 @@
+# Deploy: a self-hosted runner living inside the idj container on the target
+# host builds the app and flips an atomic release symlink. The runner is
+# provisioned by ops (servers/firefly/ensure-idj-runner.sh) and registered to
+# this repo with the `idj` label. Same pattern as cinderblock/bins.
+name: Deploy
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+env:
+  APP_ROOT: /srv/idj
+  SOCKET: /run/idj/idj.sock
+
+jobs:
+  deploy:
+    strategy:
+      # One instance's host being down must never cancel another's deploy.
+      fail-fast: false
+      matrix:
+        # One entry per deployment of this app. Each instance runs its own
+        # self-hosted runner (label = the value here) on its own host with its
+        # own volumes, so APP_ROOT/SOCKET are identical and only the label varies.
+        #   idj — firefly, https://idj.isozilla.com
+        instance: [idj]
+    runs-on: [self-hosted, '${{ matrix.instance }}']
+    # Per instance: two pushes to the SAME deployment must serialize (they race
+    # on one host's release tree).
+    concurrency:
+      group: deploy-${{ matrix.instance }}
+      cancel-in-progress: false
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Build (Bun)
+        run: |
+          set -euo pipefail
+          bun install --frozen-lockfile
+          bun run build
+
+      - name: Stage release tree
+        run: |
+          set -euo pipefail
+          REL="$APP_ROOT/releases/$GITHUB_SHA"
+          rm -rf "$REL"
+          mkdir -p "$REL"
+          # Ready-to-run tree: the built server output, the migration files and
+          # the migrate script's sources (the app migrates on boot), the admin
+          # scripts (token:mint etc. via docker exec), and prod node_modules.
+          cp -r .output drizzle src scripts run package.json bun.lock drizzle.config.ts "$REL"/
+          chmod +x "$REL/run"
+          # Stamp the build SHA so the running app reports which release it is
+          # (served at /api/version; the health check below verifies it).
+          printf '%s' "$GITHUB_SHA" > "$REL/BUILD_SHA"
+          # Prune to production dependencies inside the release dir.
+          ( cd "$REL" && bun install --frozen-lockfile --production )
+
+      - name: Activate + restart
+        run: |
+          set -euo pipefail
+          # Atomic flip, then poke the supervisor's restart sentinel.
+          ln -sfn "releases/$GITHUB_SHA" "$APP_ROOT/current"
+          touch "$APP_ROOT/restart"
+
+      - name: Wait for the NEW build to be serving
+        # Poll /api/version over the unix socket until it reports THIS commit's
+        # SHA — proving the supervisor restarted into the new release (a plain
+        # 200 could be the old process).
+        env:
+          EXPECT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 60); do
+            sha="$(curl -s --max-time 5 --unix-socket "$SOCKET" \
+              http://localhost/api/version 2>/dev/null \
+              | sed -n 's/.*"sha":"\([^"]*\)".*/\1/p' || true)"
+            if [ "$sha" = "$EXPECT_SHA" ]; then
+              echo "✓ serving $sha"
+              exit 0
+            fi
+            [ -n "$sha" ] && echo "  attempt $i: serving $sha (want $EXPECT_SHA)" \
+              || echo "  attempt $i: no response yet"
+            sleep 2
+          done
+          echo "Timed out waiting for the new release to serve" >&2
+          exit 1
+
+      - name: Prune old releases (keep last 5)
+        if: always()
+        run: |
+          set -euo pipefail
+          cd "$APP_ROOT/releases"
+          current="$(basename "$(readlink -f "$APP_ROOT/current")")"
+          ls -1t | grep -v "^${current}$" | tail -n +5 | xargs -r rm -rf
+          echo "releases kept: $(ls -1 | wc -l)"
