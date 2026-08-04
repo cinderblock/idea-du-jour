@@ -101,7 +101,7 @@ function Setup() {
           when it asks:
         </p>
         <a
-          href="/idj-memo.shortcut"
+          href="/shortcut"
           className="mt-2 inline-block rounded-md bg-gray-900 px-3 py-1.5 text-sm font-medium text-white dark:bg-white dark:text-gray-900"
         >
           Get the “Memo to idj” shortcut
