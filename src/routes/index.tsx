@@ -99,7 +99,7 @@ function Inbox() {
   const empty = items.length === 0 && visiblePending.length === 0
 
   return (
-    <main className="mx-auto min-h-screen max-w-2xl px-4 pb-24 pt-6">
+    <main className="min-h-safe mx-auto max-w-2xl px-4 pb-24 pt-6">
       <header className="mb-4 flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">idea-du-jour</h1>

@@ -17,8 +17,12 @@ export const Route = createRootRoute({
       { name: 'apple-mobile-web-app-capable', content: 'yes' },
       { name: 'apple-mobile-web-app-title', content: 'idj' },
       {
+        // NOT black-translucent: that extends the page under the status bar
+        // (needs safe-area padding everywhere) AND forces white status-bar text,
+        // which is invisible on this app's light-mode background. `default` lets
+        // iOS place content below the bar and pick readable text per theme.
         name: 'apple-mobile-web-app-status-bar-style',
-        content: 'black-translucent',
+        content: 'default',
       },
     ],
     links: [

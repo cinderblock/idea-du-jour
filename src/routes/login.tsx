@@ -70,7 +70,7 @@ function Login() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-6">
+    <main className="min-h-safe mx-auto flex max-w-sm flex-col justify-center px-6">
       <h1 className="text-2xl font-bold tracking-tight">idea-du-jour</h1>
       <p className="mt-1 text-sm text-gray-500">
         {hasUser === false
