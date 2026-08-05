@@ -114,6 +114,32 @@ Non-negotiables:
 - Not exercised end-to-end in a browser here (needs a virtual authenticator + network toggle):
   **device test** = install PWA, airplane mode, capture (see "pending"), re-enable (it syncs).
 
+### iPhone Shortcut (built; signing abandoned)
+- `scripts/gen-shortcut.ts` generates "Memo to idj" as a plist (`plutil -lint` clean).
+  The capture token is **not** baked in — `WFWorkflowImportQuestions` makes iOS prompt for
+  it at import, so the file carries no secret and rotating = re-importing.
+- Served at **`/shortcut`** (`src/routes/shortcut.ts`) with
+  `application/octet-stream` + `Content-Disposition`. Static serving gave it `text/plain`
+  (it's XML) and Safari just rendered it — that's why the route exists.
+- **Signing: ABANDONED — do not retry without new information.** `shortcuts sign` needs an
+  iCloud-authenticated GUI session. Verified on camerons-mini: SSH works, GUI console
+  session exists, iCloud is logged in (`cameron@tacklind.com`, `LoggedIn=1`), iCloud Drive
+  is on (`MOBILE_DOCUMENTS enabled=1`), Shortcuts.app has run (containers exist) — yet
+  **no Shortcuts service is registered** on the account, there is **no "Options…" button**
+  next to iCloud Drive in System Preferences, and signing always fails with
+  `WFCloudKitErrorDomain Code=2 "you must be signed into iCloud"`. A LaunchAgent running
+  *inside* the GUI session hits the identical error, which rules out session/TCC/sudo as
+  the cause. Signing is only needed for tap-a-web-link installs.
+- **Working alternatives (either is better than more signing work):** (a) build it once by
+  hand from `/setup`, then ⋯ → Share → **Copy iCloud Link** — installs anywhere, forever;
+  (b) enable *Settings → Shortcuts → Allow Untrusted Shortcuts* on the phone and import
+  `/shortcut` directly.
+- The drop-folder signer LaunchAgent (ops `16a269f`, installed on the mini) is fine and
+  proven end-to-end — it fires, runs, and reports errors atomically. It'll just work if the
+  Mac's iCloud/Shortcuts state is ever fixed.
+- **The Shortcut's internal wiring is UNTESTED** (no iOS device here). If import misbehaves,
+  the hand-build steps on `/setup` are known-good.
+
 ### Claude triage skill (built)
 - `.claude/skills/idj-triage/` — a **project skill** (committed, versioned with the API it
   calls). Invoked in Claude Code ("triage my inbox"), it reads `GET /api/items?status=open`,
