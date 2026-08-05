@@ -114,13 +114,18 @@ Non-negotiables:
 - Not exercised end-to-end in a browser here (needs a virtual authenticator + network toggle):
   **device test** = install PWA, airplane mode, capture (see "pending"), re-enable (it syncs).
 
-### iPhone Shortcut (built; signing abandoned)
-- `scripts/gen-shortcut.ts` generates "Memo to idj" as a plist (`plutil -lint` clean).
-  The capture token is **not** baked in — `WFWorkflowImportQuestions` makes iOS prompt for
-  it at import, so the file carries no secret and rotating = re-importing.
-- Served at **`/shortcut`** (`src/routes/shortcut.ts`) with
-  `application/octet-stream` + `Content-Disposition`. Static serving gave it `text/plain`
-  (it's XML) and Safari just rendered it — that's why the route exists.
+### iPhone Shortcut — hand-built + iCloud link (file delivery abandoned)
+- **DEAD END, do not rebuild:** generating a `.shortcut` file for tap-to-install does not
+  work. **iOS only imports Apple-signed shortcut files** — the old "Allow Untrusted
+  Shortcuts" escape hatch is gone — and signing requires a working Mac (see below). The
+  generator, the `/shortcut` route and the plist files were all removed as dead weight.
+- **The path that works:** build it by hand once from `/setup` (which has tap-to-copy for
+  the URL and token), then **⋯ → Share → Copy iCloud Link** — that link re-installs it on
+  any device forever. This is strictly better than a hosted file anyway.
+- Recipe: Dictate Text → Get Contents of URL (`POST {base}/api/capture`, header
+  `Authorization: Bearer <capture token>`, body **JSON** with one text field `text` = the
+  Dictated Text variable). Note iOS offers only JSON/File/Form for the body — no Text —
+  which is why `/api/capture` accepts both raw text and `{text: ...}`.
 - **Signing: ABANDONED — do not retry without new information.** `shortcuts sign` needs an
   iCloud-authenticated GUI session. Verified on camerons-mini: SSH works, GUI console
   session exists, iCloud is logged in (`cameron@tacklind.com`, `LoggedIn=1`), iCloud Drive

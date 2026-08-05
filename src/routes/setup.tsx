@@ -97,46 +97,39 @@ function Setup() {
       <section className="mt-6">
         <h2 className="text-sm font-semibold">2. Voice memos (Action button)</h2>
         <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-          Fastest path — tap to install the ready-made shortcut, then paste a capture token
-          when it asks:
+          Build it once here, then <strong>⋯ → Share → Copy iCloud Link</strong> — that link
+          re-installs it on any of your devices later. (iOS only imports Apple-signed
+          shortcut files, so there is no one-tap download.)
         </p>
-        <a
-          href="/shortcut"
-          className="mt-2 inline-block rounded-md bg-gray-900 px-3 py-1.5 text-sm font-medium text-white dark:bg-white dark:text-gray-900"
-        >
-          Get the “Memo to idj” shortcut
-        </a>
-        <details className="mt-3 text-sm text-gray-600 dark:text-gray-400">
-          <summary className="cursor-pointer">…or build it by hand</summary>
-          <ol className="mt-2 list-decimal space-y-1 pl-5">
-            <li>
-              Shortcuts → <strong>+</strong> → add <strong>Dictate Text</strong>
-            </li>
-            <li>
-              Add <strong>Get Contents of URL</strong>, expand it, and set:
-              <ul className="mt-1 list-disc space-y-1 pl-5">
-                <li>
-                  URL: <code className="text-xs">{base}/api/capture</code>
-                </li>
-                <li>
-                  Method: <strong>POST</strong>
-                </li>
-                <li>
-                  Headers: <code className="text-xs">Authorization</code> ={' '}
-                  <code className="text-xs">Bearer &lt;token&gt;</code>
-                </li>
-                <li>
-                  Request Body: <strong>JSON</strong>, one text field with key{' '}
-                  <code className="text-xs">text</code>, value = the{' '}
-                  <strong>Dictated Text</strong> variable
-                </li>
-              </ul>
-            </li>
-            <li>
-              Name it, then <strong>Settings → Action Button → Shortcut</strong>
-            </li>
-          </ol>
-        </details>
+
+        <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-gray-600 dark:text-gray-400">
+          <li>
+            Shortcuts → <strong>+</strong> → add <strong>Dictate Text</strong>
+          </li>
+          <li>
+            Add <strong>Get Contents of URL</strong>, tap ▸ to expand, then set:
+            <div className="mt-2 space-y-2">
+              <Copyable value={`${base}/api/capture`} label="URL" />
+              <p>
+                Method: <strong>POST</strong>
+              </p>
+              <p>
+                Headers → key <code className="text-xs">Authorization</code>, value{' '}
+                <code className="text-xs">Bearer &lt;your capture token&gt;</code> (mint one
+                below and paste it after “Bearer ”)
+              </p>
+              <p>
+                Request Body: <strong>JSON</strong> → one <em>Text</em> field, key{' '}
+                <code className="text-xs">text</code>, value = the{' '}
+                <strong>Dictated Text</strong> variable from step 1
+              </p>
+            </div>
+          </li>
+          <li>
+            Name it <strong>Memo to idj</strong>, then{' '}
+            <strong>Settings → Action Button → Shortcut</strong>
+          </li>
+        </ol>
       </section>
 
       {/* 3. tokens */}
