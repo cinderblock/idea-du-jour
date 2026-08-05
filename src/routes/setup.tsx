@@ -114,19 +114,20 @@ function Setup() {
                 Method: <strong>POST</strong>
               </p>
               <p>
-                <strong>Leave Headers empty.</strong> Under <strong>Request Body</strong>{' '}
-                choose <strong>JSON</strong> and add <em>two Text fields</em>:
+                <strong>Headers</strong> → add one row. Mint a token below and copy the
+                two fields it gives you (the value already includes{' '}
+                <code className="text-xs">Bearer </code> — paste it whole):
               </p>
-              <ul className="list-disc space-y-1 pl-5">
-                <li>
-                  key <code className="text-xs">text</code> → value is the{' '}
-                  <strong>Dictated Text</strong> variable from step 1
-                </li>
-                <li>
-                  key <code className="text-xs">token</code> → paste a capture token
-                  (mint one below)
-                </li>
-              </ul>
+              <Copyable value="Authorization" label="Header — Key" />
+              <p className="text-xs">
+                …and the <strong>Value</strong> is the “Header value” button shown after
+                you mint a token.
+              </p>
+              <p>
+                <strong>Request Body</strong>: <strong>JSON</strong> → one{' '}
+                <em>Text</em> field, key <code className="text-xs">text</code>, value = the{' '}
+                <strong>Dictated Text</strong> variable from step 1
+              </p>
             </div>
           </li>
           <li>
@@ -164,11 +165,22 @@ function Setup() {
         </div>
 
         {fresh && (
-          <div className="mt-3 rounded-md border border-amber-300 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950/40">
-            <p className="mb-2 text-xs font-medium text-amber-900 dark:text-amber-300">
-              Copy this now — it is never shown again.
+          <div className="mt-3 space-y-2 rounded-md border border-amber-300 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-950/40">
+            <p className="text-xs font-medium text-amber-900 dark:text-amber-300">
+              Copy now — never shown again.
             </p>
-            <Copyable value={fresh.secret} label={fresh.label} />
+            {/* The complete header value, Bearer prefix included, so there is
+                nothing to assemble by hand. */}
+            <Copyable
+              value={`Bearer ${fresh.secret}`}
+              label="Header value (paste whole)"
+            />
+            <details className="text-xs text-amber-900 dark:text-amber-300">
+              <summary className="cursor-pointer">raw token (rarely needed)</summary>
+              <div className="mt-2">
+                <Copyable value={fresh.secret} label={fresh.label} />
+              </div>
+            </details>
           </div>
         )}
 

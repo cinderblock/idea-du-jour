@@ -1,10 +1,9 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { enqueueEnrichment } from '../../server/enrich'
 import { captureItem } from '../../server/events'
-import { AuthError, authenticateSecret } from '../../server/tokens'
+import { AuthError, authenticate } from '../../server/tokens'
 
 type CaptureBody = {
-  token?: string
   text?: string
   kind?: string
   tags?: string[]
@@ -30,20 +29,11 @@ export const Route = createFileRoute('/api/capture')({
           text = await request.text()
         }
 
-        // Accept the token from the Authorization header OR the JSON body.
-        // Shortcuts' headers UI is easy to get silently wrong; the body is the
-        // part you're already filling in. A body token is no more exposed than
-        // a header one (it isn't written to access logs the way a query string
-        // would be).
+        // Auth is the Authorization header, strictly `Bearer <token>` — one way
+        // to do it. /setup hands you the exact string to paste.
         let tokenId: string
         try {
-          const headerSecret = (request.headers.get('authorization') ?? '')
-            .replace(/^Bearer\s+/i, '')
-            .trim()
-          const token = await authenticateSecret(
-            headerSecret || body.token,
-            'capture',
-          )
+          const token = await authenticate(request, 'capture')
           tokenId = token.id
         } catch (e) {
           if (e instanceof AuthError) {
