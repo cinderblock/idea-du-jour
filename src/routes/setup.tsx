@@ -114,15 +114,19 @@ function Setup() {
                 Method: <strong>POST</strong>
               </p>
               <p>
-                Headers → key <code className="text-xs">Authorization</code>, value{' '}
-                <code className="text-xs">Bearer &lt;your capture token&gt;</code> (mint one
-                below and paste it after “Bearer ”)
+                <strong>Leave Headers empty.</strong> Under <strong>Request Body</strong>{' '}
+                choose <strong>JSON</strong> and add <em>two Text fields</em>:
               </p>
-              <p>
-                Request Body: <strong>JSON</strong> → one <em>Text</em> field, key{' '}
-                <code className="text-xs">text</code>, value = the{' '}
-                <strong>Dictated Text</strong> variable from step 1
-              </p>
+              <ul className="list-disc space-y-1 pl-5">
+                <li>
+                  key <code className="text-xs">text</code> → value is the{' '}
+                  <strong>Dictated Text</strong> variable from step 1
+                </li>
+                <li>
+                  key <code className="text-xs">token</code> → paste a capture token
+                  (mint one below)
+                </li>
+              </ul>
             </div>
           </li>
           <li>

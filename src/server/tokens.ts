@@ -65,14 +65,19 @@ export class AuthError extends Error {
 }
 
 /**
- * Authenticate a request for the required scope. Throws AuthError on failure.
- * Updates last_used_ts on success (best-effort).
+ * Authenticate a raw token secret for the required scope.
+ *
+ * Exposed separately from `authenticate` so callers can accept the secret from
+ * somewhere other than the Authorization header — notably `/api/capture`, which
+ * also takes it in the JSON body. That's for Siri Shortcuts: its "Get Contents
+ * of URL" headers UI is easy to get silently wrong, while the JSON body is the
+ * part you're already filling in. A body token is no more exposed than a header
+ * one (unlike a query string, it isn't written to access logs).
  */
-export async function authenticate(
-  request: Request,
+export async function authenticateSecret(
+  secret: string | null | undefined,
   need: Scope,
 ): Promise<Token> {
-  const secret = parseBearer(request)
   if (!secret) throw new AuthError(401, 'missing bearer token')
 
   const parts = secret.split('_')
@@ -94,4 +99,15 @@ export async function authenticate(
   ).catch(() => {})
 
   return row
+}
+
+/**
+ * Authenticate a request for the required scope via the Authorization header.
+ * Throws AuthError on failure.
+ */
+export async function authenticate(
+  request: Request,
+  need: Scope,
+): Promise<Token> {
+  return authenticateSecret(parseBearer(request), need)
 }
