@@ -145,6 +145,62 @@ Non-negotiables:
 - **The Shortcut's internal wiring is UNTESTED** (no iOS device here). If import misbehaves,
   the hand-build steps on `/setup` are known-good.
 
+### Voice capture: record audio + server-side Whisper — PROPOSED (not decided, nothing built)
+Researched 2026-08-09 after the Math Camp dictation burst exposed both failure modes at once.
+No code written; the vendor decision (self-host vs API) is still open — see Open questions.
+
+**Motivating evidence (real, from our own data).** Eight captures landed 18:32:16–18:34:21,
+one continuous thought chopped into fragments by the dictation engine stopping on pauses:
+"…two sets of tarps one for the shade pyramids" → "Some 10 by tens and some eight by tens"
+→ "Those are all in a box". The 22- and 38-char items are pure artifacts of re-triggering.
+Separately, domain nouns were mangled beyond recovery: "Just fall is" = *Tuzfal.isozilla*
+(only decoded by grepping the ops repo for a matching server name), "shades structure tea
+parts" = *shade structure T-parts*, and "the booze and late" is **permanently unrecoverable**
+because we never kept the audio.
+
+**The architectural argument.** Audio is the durable artifact; a transcript is a lossy
+derivation. Storing only the derivation, produced by the weakest transcriber in the chain,
+means transcription errors are permanent. Keeping the audio makes re-transcription a matter
+of appending new events later — which is exactly the shape this codebase already has
+(`item.created` → async worker → `item.transcribed` → existing `item.enriched`, all replayed
+by `rebuildProjection`). Same fire-and-forget pattern as `src/server/enrich.ts`.
+
+**Shortcuts support — verified by research, NOT on a device:**
+- A `Record Audio` action exists and `Get Contents of URL` can send a file body, so the
+  pipeline is buildable.
+- **Siri-triggered `Record Audio` hangs** — since iOS 16.4 the record screen freezes when the
+  shortcut is invoked by voice (developer.apple.com/forums/thread/727391). Same thread reports
+  it working from the **Action button** on a 15 Pro. Our flow is Action-button-based so this
+  may not bite, but "hey Siri, capture" is a dead end for audio.
+- **Recording cannot start from a fully backgrounded state** (developer.apple.com/forums/thread/815725)
+  — the shortcut must foreground. Fine for press-and-talk; rules out anything ambient.
+- **iOS 18+ has a native on-device `Transcribe` action** — free and private, but reported
+  flaky on long audio and offers no keyword biasing, so it fixes the cutoff and not "Just fall".
+- **The cheap fix probably doesn't work:** `Dictate Text` → Stop Listening → *On Tap* is
+  widely reported to stop on a pause anyway (discussions.apple.com/thread/255582634,
+  talk.automators.fm/t/dictated-text-stops-prematurely/10946). Costs nothing to try; don't
+  plan around it.
+
+**Keyword biasing is a real, documented feature.** OpenAI's transcription endpoint takes a
+`prompt` parameter to improve recognition of names/acronyms/domain vocabulary. Subtlety: it is
+a *spelling/style exemplar*, not an instruction — feed it correct spellings, it will not obey
+commands (cookbook.openai.com/examples/whisper_correct_misspelling). `whisper-1` caps at 224
+tokens; `gpt-4o-transcribe` has more headroom. Glossary sources we already have: ops server
+names (Tuzfal, Uberfall, Pokol, Beelzebub, Firefly, Jackson, Iris, Sentinel, Steamboat),
+existing idj tags, and a hand-written Math Camp list (shade pyramids, T-parts, tarps, bins).
+
+**Proposed shape (if we build it):**
+1. `POST /api/capture` accepts multipart audio; store the file on disk under the existing
+   `data` volume, append `item.created` referencing it with empty text.
+2. Async transcriber worker (mirrors `enrich.ts`) → appends `item.transcribed` → fills
+   body/first_capture. Enricher runs after, unchanged.
+3. Server-side glossary builder generates the `prompt` per request.
+4. Keep `Dictate Text` on the share sheet for one-liners (instant, no upload); Action button
+   becomes the record-audio brain-dump path.
+
+**Risk to design for:** a lost 3-minute recording is far worse than today's failed text POST.
+The Shortcut should save to Files first and upload second, so a dead network never eats audio.
+
 ### Claude triage skill (built)
 - `.claude/skills/idj-triage/` — a **project skill** (committed, versioned with the API it
   calls). Invoked in Claude Code ("triage my inbox"), it reads `GET /api/items?status=open`,
@@ -329,7 +385,22 @@ repo — the established mechanism (`servers/lib/ensure-github-runner.sh` docume
   zod is v4 (`4.4.3`) and typechecks against the SDK's `zodOutputFormat` — watch for a
   runtime mismatch on the first real call.
 
+## Open questions for the user
+1. **Where does transcription run?** (a) self-hosted faster-whisper on `sentinel` — no
+   per-token cost, no audio leaves our infra, but that GPU has a documented habit of silently
+   dying on NVIDIA driver upgrades (it has a `/health` probe for exactly this); survivable
+   because transcription is async and retryable, so a dead GPU means untranscribed, not lost.
+   (b) OpenAI API — low effort, negligible cost at ~2 min/day, but a new vendor and the audio
+   leaves the building. *No recommendation yet — this is a values call, not a technical one.*
+2. **Device tests needed before any server work** (5 minutes, needs the phone): does
+   `Get Contents of URL` cleanly post a `Record Audio` output as multipart, and how does
+   `Record Audio` actually behave from *your* Action button on *your* iOS version?
+
 ## Things not to do
+- Don't wire audio capture to a **Siri voice trigger** — `Record Audio` hangs when invoked by
+  Siri (iOS 16.4+). Action button only.
+- Don't rely on `Dictate Text` → Stop Listening → *On Tap* to fix the early-cutoff problem;
+  it's reported to stop on a pause regardless.
 - Don't UPDATE/DELETE rows in `events` — the log is the source of truth.
 - Don't give Siri shortcuts a read/agent token — capture scope only.
 - Don't touch firefly / Caddy / DNS without explicit per-change authorization; work via ops repo.
