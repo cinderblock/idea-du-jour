@@ -117,15 +117,43 @@ See scripts: `bun run dev` · `typecheck` · `build` · `db:migrate` · `db:gene
 `db:rebuild` (replay log → projection) · `token:mint <capture|agent> "<label>"` ·
 `icons:gen` (regenerate PWA icons) · `enrich:pending` (enrich items captured before a key existed).
 
-### Triage with Claude
+### Reading the inbox with Claude (the `idj-triage` skill)
 
-`.claude/skills/idj-triage/` is a Claude Code skill for working through the inbox — say
-"triage my inbox" and Claude reads your open items via the agent API, reasons across the
-whole set (cluster, dedupe, next actions, stale items), and writes back comments / done /
-reopen. Runs on your Claude subscription (no API bill). Configure it by copying
-`.claude/skills/idj-triage/.env.example` to `.env.local` and pasting an agent token
-(`bun run token:mint agent "claude-triage"`). It loads when you're in this repo; to use it
-anywhere, junction it into `~/.claude/skills/`.
+`.claude/skills/idj-triage/` is a Claude Code skill for reading and working through the
+inbox — say "check idj", "read my idj notes", "what did I capture this week", or "triage my
+inbox" and Claude reads your open items via the agent API, reasons across the whole set
+(cluster, dedupe, next actions, stale items), and writes back comments / done / reopen.
+Runs on your Claude subscription (no API bill).
+
+**Install it once, use it from any project.** The skill only auto-loads while Claude's
+working directory is this repo; linking it into `~/.claude/skills/` makes it load
+everywhere. It's a link, not a copy, so the token and the skill text have one home.
+
+```sh
+bun run token:mint agent "claude-triage"          # prints a one-time agent token
+cp .claude/skills/idj-triage/.env.example .claude/skills/idj-triage/.env.local
+#   -> paste the token into .env.local (IDJ_BASE_URL is already production)
+bun run skill:install                             # links ~/.claude/skills/idj-triage
+```
+
+`bun run skill:install` is idempotent (re-running reports "already linked") and refuses
+to overwrite anything that isn't a link back to this repo; `bun run skill:install
+--remove` unlinks. Under the hood it is a directory junction on Windows and a symlink
+elsewhere — the manual equivalents, if you'd rather not run the script:
+
+```powershell
+# Windows (PowerShell) — no admin or developer mode needed for a junction
+New-Item -ItemType Junction -Path "$HOME\.claude\skills\idj-triage" -Target "$PWD\.claude\skills\idj-triage"
+```
+
+```sh
+# macOS / Linux
+mkdir -p ~/.claude/skills && ln -s "$PWD/.claude/skills/idj-triage" ~/.claude/skills/idj-triage
+```
+
+Then start (or restart) Claude Code anywhere and ask it to check idj. The token file
+is gitignored; the *capture* token stays write-only, so an agent token is the only one
+that can read.
 
 ### Layout
 - `src/db/` — Drizzle schema (`events`, `items`, `tokens`, `users`, `credentials`),

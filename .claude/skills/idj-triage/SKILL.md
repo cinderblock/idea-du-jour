@@ -1,6 +1,6 @@
 ---
 name: idj-triage
-description: Read and work through the idea-du-jour capture inbox with Claude — fetch open items, reason across the whole set (cluster, dedupe, surface next actions, spot stale items), and write back comments / done / reopen via the agent API. Use when the user says "triage my inbox", "process my idj items", "what's in my inbox", "go through my ideas", or similar.
+description: Read the user's idea-du-jour (idj) capture inbox and work through it with Claude — fetch open items, reason across the whole set (cluster, dedupe, surface next actions, spot stale items), pull out feature requests for a project, and write back comments / done / reopen via the agent API. Use when the user says "check idj", "check for idj entries", "read my idj notes", "what did I capture", "find <project> features in idj", "triage my inbox", "process my idj items", "go through my ideas", or similar.
 ---
 
 # idea-du-jour triage
@@ -15,16 +15,23 @@ so lean into whole-inbox reasoning that the server-side per-item enricher can't 
 Read the base URL and agent token, in this order:
 
 1. Env vars `IDJ_BASE_URL` and `IDJ_AGENT_TOKEN`.
-2. Otherwise `.claude/skills/idj-triage/.env.local` (KEY=value lines) — this is the usual
-   place; it's gitignored. If it's missing, tell the user to copy `.env.example` to
-   `.env.local` and mint a token with `bun run token:mint agent "claude-triage"` (from the
-   idj repo), then paste it in.
+2. Otherwise the `.env.local` file **in the same directory as this SKILL.md** (KEY=value
+   lines; gitignored). That works whether the skill was loaded from the idj repo
+   (`.claude/skills/idj-triage/.env.local`) or from the global link
+   (`~/.claude/skills/idj-triage/.env.local` — a junction/symlink back into the repo, so
+   it is the same file). If it's missing, tell the user to copy `.env.example` to
+   `.env.local` next to it and mint a token with `bun run token:mint agent "claude-triage"`
+   (from the idj repo), then paste it in.
 
-Defaults: `IDJ_BASE_URL=http://localhost:3000` (local dev) — production is
-`https://idj.isozilla.com` once deployed.
+Defaults: `IDJ_BASE_URL=https://idj.isozilla.com` (production — where real captures
+live). Use `http://localhost:3000` only when explicitly working against a local dev
+instance.
 
 > Dev note: the Vite dev server binds IPv6 only. If `http://localhost:3000` is refused by
 > curl, use `http://[::1]:3000`. Production over HTTPS has no such issue.
+
+> Comments: send the body as `text/plain`. Building the JSON form by hand breaks on
+> embedded quotes, and the endpoint accepts raw text anyway.
 
 ## 2. Fetch the inbox
 

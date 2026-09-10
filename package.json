@@ -14,7 +14,8 @@
     "token:mint": "bun run scripts/mint-token.ts",
     "db:rebuild": "bun run scripts/rebuild.ts",
     "icons:gen": "bun run scripts/gen-icons.ts",
-    "enrich:pending": "bun run scripts/enrich-pending.ts"
+    "enrich:pending": "bun run scripts/enrich-pending.ts",
+    "skill:install": "bun run scripts/install-skill.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.112.4",
