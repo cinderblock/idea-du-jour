@@ -22,8 +22,10 @@ and progress.
 - **Agent enrichment:** captures are asynchronously classified/tagged/summarized by Claude
   (`claude-sonnet-5` via the Anthropic SDK) and written back as an `item.enriched` event —
   off when no `ANTHROPIC_API_KEY` is set. Never blocks or fails the capture path.
-- **Hosting:** Docker on `firefly` behind Caddy (HTTPS) at `idj.isozilla.com`. *(later; infra
-  changes are gated — see `plans/idea-du-jour.md`)*
+- **Hosting:** a container on `firefly` behind Caddy (HTTPS) at `idj.isozilla.com`. This
+  repo's CI publishes `ghcr.io/cinderblock/idea-du-jour:<sha>` on push and stops there;
+  **which build runs is pinned in the ops repo** (`cinderblock/ops`,
+  `servers/firefly/stacks/idj/pin.json`), and only an ops push changes it.
 
 ## Capture (iPhone)
 
