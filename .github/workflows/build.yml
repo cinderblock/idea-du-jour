@@ -38,6 +38,14 @@ jobs:
 
       - run: bun install --frozen-lockfile
 
+      - name: Build (generates the route tree the typecheck needs)
+        # TanStack Router writes src/routeTree.gen.ts during `vite build`. It is
+        # gitignored, so on a fresh checkout `tsc` sees every route as `never`
+        # and fails on code that is fine. The Docker build below rebuilds from
+        # scratch in its own stage; this one exists so the typecheck checks
+        # real types.
+        run: bun run build
+
       - name: Typecheck
         run: bun run typecheck
 
