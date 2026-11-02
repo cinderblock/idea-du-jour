@@ -20,7 +20,7 @@ import {
  */
 
 export const fetchItems = createServerFn({ method: 'GET' })
-  .inputValidator((data: { status?: string; kind?: string } | undefined) => data ?? {})
+  .validator((data: { status?: string; kind?: string } | undefined) => data ?? {})
   .handler(async ({ data }) => {
     requireUserId()
     const items = await listItems({ status: data.status, kind: data.kind })
@@ -28,14 +28,14 @@ export const fetchItems = createServerFn({ method: 'GET' })
   })
 
 export const fetchItem = createServerFn({ method: 'GET' })
-  .inputValidator((data: { id: string }) => data)
+  .validator((data: { id: string }) => data)
   .handler(async ({ data }) => {
     requireUserId()
     return getItem(data.id)
   })
 
 export const webCapture = createServerFn({ method: 'POST' })
-  .inputValidator((data: { text: string }) => data)
+  .validator((data: { text: string }) => data)
   .handler(async ({ data }) => {
     requireUserId()
     const text = (data.text ?? '').trim()
@@ -46,7 +46,7 @@ export const webCapture = createServerFn({ method: 'POST' })
   })
 
 export const addComment = createServerFn({ method: 'POST' })
-  .inputValidator((data: { id: string; text: string }) => data)
+  .validator((data: { id: string; text: string }) => data)
   .handler(async ({ data }) => {
     requireUserId()
     const id = await commentItem({
@@ -58,7 +58,7 @@ export const addComment = createServerFn({ method: 'POST' })
   })
 
 export const setItemStatus = createServerFn({ method: 'POST' })
-  .inputValidator((data: { id: string; status: Status }) => data)
+  .validator((data: { id: string; status: Status }) => data)
   .handler(async ({ data }) => {
     requireUserId()
     const id = await setStatus({
@@ -79,7 +79,7 @@ export const getAuth = createServerFn({ method: 'GET' }).handler(async () => {
  * stored in plaintext (only a hash), so the caller must copy it immediately.
  */
 export const createToken = createServerFn({ method: 'POST' })
-  .inputValidator((data: { scope: Scope; label: string }) => data)
+  .validator((data: { scope: Scope; label: string }) => data)
   .handler(async ({ data }) => {
     requireUserId()
     const label = data.label.trim() || 'unnamed'
@@ -98,7 +98,7 @@ export const fetchTokens = createServerFn({ method: 'GET' }).handler(async () =>
 
 /** Revoke a token by id. */
 export const revokeTokenFn = createServerFn({ method: 'POST' })
-  .inputValidator((data: { id: string }) => data)
+  .validator((data: { id: string }) => data)
   .handler(async ({ data }) => {
     requireUserId()
     await revokeToken(data.id)
