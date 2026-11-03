@@ -18,7 +18,7 @@
     "skill:install": "bun run scripts/install-skill.ts"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.112.4",
+    "@anthropic-ai/sdk": "^0.137.0",
     "@libsql/client": "^0.17.4",
     "@simplewebauthn/browser": "^13.3.0",
     "@simplewebauthn/server": "^13.3.2",
