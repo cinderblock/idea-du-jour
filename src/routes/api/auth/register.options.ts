@@ -1,6 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { generateRegistrationOptions } from '@simplewebauthn/server'
-import type { AuthenticatorTransportFuture } from '@simplewebauthn/server'
 import { ulid } from 'ulid'
 import * as auth from '../../../server/auth'
 import { env } from '../../../server/env'
@@ -38,9 +37,7 @@ export const Route = createFileRoute('/api/auth/register/options')({
           attestationType: 'none',
           excludeCredentials: existing.map((c) => ({
             id: c.id,
-            transports: (c.transports ?? undefined) as
-              | AuthenticatorTransportFuture[]
-              | undefined,
+            transports: c.transports ?? undefined,
           })),
           authenticatorSelection: {
             residentKey: 'preferred',

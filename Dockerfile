@@ -5,7 +5,7 @@
 # servers/firefly/stacks/idj/pin.json.
 
 # --- Build: full deps, Nitro build, then prune to production deps -----------
-FROM oven/bun:1.3 AS build
+FROM oven/bun:1.4 AS build
 WORKDIR /app
 
 COPY package.json bun.lock ./
@@ -19,7 +19,7 @@ RUN bun run build
 RUN rm -rf node_modules && bun install --frozen-lockfile --production
 
 # --- Runtime ----------------------------------------------------------------
-FROM oven/bun:1.3 AS runtime
+FROM oven/bun:1.4 AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 

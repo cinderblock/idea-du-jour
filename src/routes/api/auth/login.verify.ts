@@ -2,7 +2,6 @@ import { createFileRoute } from '@tanstack/react-router'
 import { verifyAuthenticationResponse } from '@simplewebauthn/server'
 import type {
   AuthenticationResponseJSON,
-  AuthenticatorTransportFuture,
 } from '@simplewebauthn/server'
 import * as auth from '../../../server/auth'
 import { env } from '../../../server/env'
@@ -31,9 +30,7 @@ export const Route = createFileRoute('/api/auth/login/verify')({
             id: cred.id,
             publicKey: auth.decodePublicKey(cred.publicKey),
             counter: cred.counter,
-            transports: (cred.transports ?? undefined) as
-              | AuthenticatorTransportFuture[]
-              | undefined,
+            transports: cred.transports ?? undefined,
           },
           requireUserVerification: false,
         })
