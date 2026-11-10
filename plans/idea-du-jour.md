@@ -227,9 +227,11 @@ signature, dedupe and coalesce, and hold deliveries that arrive while the PC is 
 `POST /api/hooks/<taskId>/<token>` on its own HTTP listener (`apps/server/src/scheduledTasks/
 webhookRoute.ts` in `~/git/t3code`). Connect only supplies a public base URL
 (`relayHookBaseUrl`); with Connect off the task still has `webhook.path`, just `url: null`.
-So the only open part is the network path between idj and the T3 server: either idj (firefly)
-POSTs to T3 over a private route (infra change, needs approval), or a small bridge on the T3
-host pulls from idj's `/api/events` (outbound only) and POSTs to `localhost`.
+**Network path: already there.** `t3.isozilla.com` is a Cloudflare Tunnel (`noook`) to this
+desktop's T3 on `127.0.0.1:3773` (ops `cloudflare/config/isozilla/isozilla.com.yaml`), with no
+Access gate in front. So idj POSTs straight to
+`https://t3.isozilla.com/api/hooks/<taskId>/<token>`. No infra change, no bridge, no Connect.
+The token in the path plus an HMAC secret are the auth; store both as idj env vars.
 
 **Security:** this turns the write-only capture token into "can start an agent on the desktop".
 Mitigations: webhook carries only an id (the text is fetched, and treated as the user's prompt
@@ -440,8 +442,7 @@ repo — the established mechanism (`servers/lib/ensure-github-runner.sh` docume
    `Get Contents of URL` cleanly post a `Record Audio` output as multipart, and how does
    `Record Audio` actually behave from *your* Action button on *your* iOS version?
 
-3. **Agent dispatch network path:** idj pushes to T3 over a private route, or a bridge on the
-   T3 host pulls from idj? *Recommendation: pull bridge — no infra change, no inbound hole.*
+3. ~~Agent dispatch network path~~ Answered 2026-11-10: push to `t3.isozilla.com` (exists).
 
 ## Things not to do
 - Don't use T3 Connect for anything (user refuses it).
