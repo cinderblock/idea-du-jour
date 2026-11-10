@@ -145,9 +145,23 @@ Non-negotiables:
 - **The Shortcut's internal wiring is UNTESTED** (no iOS device here). If import misbehaves,
   the hand-build steps on `/setup` are known-good.
 
-### Voice capture: record audio + server-side Whisper — PROPOSED (not decided, nothing built)
+### Voice capture: record audio + server-side Whisper — BUILT (idj side); Whisper host pending
 Researched 2026-08-09 after the Math Camp dictation burst exposed both failure modes at once.
-No code written; the vendor decision (self-host vs API) is still open — see Open questions.
+Decided 2026-11-10: transcription on `sentinel`. idj side built 2026-11-10:
+- `POST /api/capture` takes a recording as the raw body (`audio/*`, `application/octet-stream`,
+  magic-byte sniffed) or a multipart part. Saved to `<db dir>/audio/<itemId>.<ext>` (prod:
+  `/srv/idj/data/audio`, on the `idj_app` volume), referenced from `item.created.payload.audio`.
+- `src/server/transcribe.ts` posts it to `TRANSCRIBE_URL` (OpenAI-compatible
+  `/v1/audio/transcriptions`) with a `Vocabulary: …` prompt (glossary env + top 30 tags), then
+  appends `item.transcribed` and enqueues enrichment. A Nitro plugin
+  (`src/server/plugins/workers.ts`) runs a retry sweep every 5 min. Unset URL = audio waits.
+- `GET /api/items/:id/audio` (session cookie or agent token), byte ranges for Safari.
+- Verified locally against a stub Whisper: raw/multipart/octet-stream uploads, 401 without
+  token, 415 for non-audio, transcript parsed (`todo:`, `#tags`), download byte-identical,
+  206 ranges, sweep picks up a recording after Whisper comes back, `db:rebuild` replay gives
+  an identical projection.
+- **Not yet:** a Whisper server on sentinel reachable from firefly, and `TRANSCRIBE_URL` in
+  the idj compose. Both are ops changes needing per-change approval.
 
 **Motivating evidence (real, from our own data).** Eight captures landed 18:32:16–18:34:21,
 one continuous thought chopped into fragments by the dictation engine stopping on pauses:
@@ -356,8 +370,18 @@ repo — the established mechanism (`servers/lib/ensure-github-runner.sh` docume
 - [ ] **Create your passkey on prod to claim the inbox** — still `hasUser:false` (first
       registrant wins). Build the Siri Shortcut with the minted capture token.
 - [ ] Dockerfile + compose; backups. Deploy to firefly (gated).
+- [x] Voice capture endpoint + transcriber + playback (2026-11-10).
+- [ ] **Current:** ship it — ops pin bump (needs approval), then walk the user through the
+      Shortcut on the phone.
+- [ ] Whisper on sentinel + network path from firefly + `TRANSCRIBE_URL` (ops, needs approval).
 
 ## Findings / gotchas
+- **SimpleWebAuthn 14 broke every request once bundled (found + fixed 2026-11-10, `cd4c7bb`).**
+  The Renovate batch (`be9bde7`, merged 2026-11-06) built and typechecked fine, but the server
+  answered 500 to everything, `/api/version` included: `tsyringe requires a reflect polyfill`.
+  v14 pulls in `@peculiar/x509` (tsyringe); Nitro's bundle loses SimpleWebAuthn's
+  `import 'reflect-metadata'`. Fix: `@simplewebauthn/server` is external in `vite.config.ts`.
+  Lesson: CI build + typecheck doesn't prove the server boots; smoke-test a request.
 - **Runtime driver = libsql, not bun:sqlite.** `bun:sqlite` only works under the Bun
   runtime; the Nitro server bundle may run on Node. `@libsql/client` + `drizzle-orm/libsql`
   is SQLite-compatible, file-backed (`file:./data/idj.db`), no native build, runs on both.
