@@ -8,7 +8,10 @@ export default defineConfig({
   resolve: { tsconfigPaths: true },
   plugins: [
     nitro({
-      rollupConfig: { external: [/^@sentry\//] },
+      // @simplewebauthn/server stays a real node_modules import: bundled, its
+      // `import 'reflect-metadata'` is lost and tsyringe (via @peculiar/x509,
+      // since v14) throws on every request. The image ships prod node_modules.
+      rollupConfig: { external: [/^@sentry\//, /^@simplewebauthn\/server/] },
       plugins: ['./src/server/plugins/workers.ts'],
     }),
     tailwindcss(),
