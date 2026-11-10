@@ -212,9 +212,8 @@ signature, dedupe and coalesce, and hold deliveries that arrive while the PC is 
 `t3_thread_send`. No scheduled tasks exist yet.
 
 **Proposed shape (push, not poll):**
-1. Addressing: only captures that are explicitly marked go to an agent, e.g. a `t3:` or
-   `@<project>:` prefix (parsed like `todo:`), so ordinary notes never start an agent turn.
-2. idj server: after capture, if the item is addressed, POST `{itemId, project?}` (no text) to
+1. Addressing: none (decided 2026-11-10). Every capture is dispatched.
+2. idj server: after capture, POST `{itemId, project?}` (no text) to
    the T3 webhook URL, HMAC-signed. Fire-and-forget like `enrich.ts`; failures are retried
    from a `dispatchedTs` column, never block capture.
 3. T3 webhook task (filter `body.itemId exists`, dedupe on itemId): a dispatcher prompt
@@ -223,6 +222,14 @@ signature, dedupe and coalesce, and hold deliveries that arrive while the PC is 
    link back on the idj item so the phone shows where it went.
 4. Fallback: a low-frequency `interval` task (e.g. hourly) that sweeps `/api/events?since=`
    for addressed items with no dispatch comment, in case a webhook was lost.
+
+**No Connect needed (found 2026-11-10):** the T3 server itself serves webhooks at
+`POST /api/hooks/<taskId>/<token>` on its own HTTP listener (`apps/server/src/scheduledTasks/
+webhookRoute.ts` in `~/git/t3code`). Connect only supplies a public base URL
+(`relayHookBaseUrl`); with Connect off the task still has `webhook.path`, just `url: null`.
+So the only open part is the network path between idj and the T3 server: either idj (firefly)
+POSTs to T3 over a private route (infra change, needs approval), or a small bridge on the T3
+host pulls from idj's `/api/events` (outbound only) and POSTs to `localhost`.
 
 **Security:** this turns the write-only capture token into "can start an agent on the desktop".
 Mitigations: webhook carries only an id (the text is fetched, and treated as the user's prompt
@@ -312,6 +319,14 @@ repo — the established mechanism (`servers/lib/ensure-github-runner.sh` docume
     `idj_data` volume + `~/idj-backups/*.tgz` on firefly retained as rollback.
   - prune step: `grep -v` exits 1 when it filters everything out, and `pipefail` turns that
     into a failed deploy on the first release — wrap in `{ ... || true; }`.
+
+## Answers locked (2026-11-10)
+1. **Transcription runs on `sentinel`** (self-hosted faster-whisper). Not the OpenAI API.
+2. **Audio first**, agent dispatch second.
+3. **Dispatch: no prefix.** Every capture goes to T3 and gets a thread; the agent works out
+   what it is and which project. Sorting happens later, in the thread.
+4. **Auto-started threads run with auto-accept edits**, not full access.
+5. **Never T3 Connect.** idj talks to our own T3 server directly; fork changes are fine.
 
 ## Plan / steps
 - [x] Lock big decisions (stack, store, auth). Write this plan.
@@ -415,7 +430,7 @@ repo — the established mechanism (`servers/lib/ensure-github-runner.sh` docume
   runtime mismatch on the first real call.
 
 ## Open questions for the user
-1. **Where does transcription run?** (a) self-hosted faster-whisper on `sentinel` — no
+1. ~~**Where does transcription run?**~~ Answered 2026-11-10: `sentinel`. (a) self-hosted faster-whisper on `sentinel` — no
    per-token cost, no audio leaves our infra, but that GPU has a documented habit of silently
    dying on NVIDIA driver upgrades (it has a `/health` probe for exactly this); survivable
    because transcription is async and retryable, so a dead GPU means untranscribed, not lost.
@@ -425,11 +440,11 @@ repo — the established mechanism (`servers/lib/ensure-github-runner.sh` docume
    `Get Contents of URL` cleanly post a `Record Audio` output as multipart, and how does
    `Record Audio` actually behave from *your* Action button on *your* iOS version?
 
-3. **Agent dispatch (see "Agent dispatch" section):** addressing syntax (`t3:` vs
-   `@project:`), runtime mode for auto-launched threads, start-new vs continue-existing, and
-   whether T3 Connect remote access may be turned on for the webhook URL.
+3. **Agent dispatch network path:** idj pushes to T3 over a private route, or a bridge on the
+   T3 host pulls from idj? *Recommendation: pull bridge — no infra change, no inbound hole.*
 
 ## Things not to do
+- Don't use T3 Connect for anything (user refuses it).
 - Don't wire audio capture to a **Siri voice trigger** — `Record Audio` hangs when invoked by
   Siri (iOS 16.4+). Action button only.
 - Don't rely on `Dictate Text` → Stop Listening → *On Tap* to fix the early-cutoff problem;
