@@ -374,6 +374,12 @@ repo — the established mechanism (`servers/lib/ensure-github-runner.sh` docume
 - [ ] **Current:** ship it — ops pin bump (needs approval), then walk the user through the
       Shortcut on the phone.
 - [ ] Whisper on sentinel + network path from firefly + `TRANSCRIBE_URL` (ops, needs approval).
+- [x] Agent-maintained vocabulary (`916e191`): `glossary_versions` table, `GET/PUT /api/glossary`,
+      `POST /api/items/:id/retranscribe`. T3 scheduled task "idj: maintain Whisper vocabulary"
+      (`scheduled-task:11fa3070-f3d3-4d51-9503-8d9751c1abe1`, project idea-du-jour, daily 4:00 AM
+      local, fresh session per run) reads transcripts, PUTs new versions, re-transcribes ≤10/run.
+- [ ] Pin staged for `916e191` (digest `sha256:ad8a3b74…`), awaiting approval. **Don't run the
+      Record shortcut before this deploys:** the old server reads an audio body as text.
 
 ## Findings / gotchas
 - **SimpleWebAuthn 14 broke every request once bundled (found + fixed 2026-11-10, `cd4c7bb`).**
