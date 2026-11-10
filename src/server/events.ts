@@ -1,7 +1,8 @@
 import { ulid } from 'ulid'
-import { and, asc, desc, eq, gt, isNull } from 'drizzle-orm'
+import { and, asc, desc, eq, gt, isNotNull, isNull, ne } from 'drizzle-orm'
 import { db } from '../db/client'
-import { events, items, type Event, type Item } from '../db/schema'
+import { events, items, type AudioRef, type Event, type Item } from '../db/schema'
+import { saveAudio } from './audio'
 import { parseCapture } from './capture'
 
 export type Actor = string // 'siri' | 'web' | 'agent:claude' | ...
@@ -63,6 +64,115 @@ export async function captureItem(opts: {
   })
 
   return itemId
+}
+
+/**
+ * A voice capture: store the recording, then append `item.created` pointing at
+ * it, with an empty body. The transcriber fills the body later via
+ * `item.transcribed`. The recording is written first so an item never
+ * references audio that isn't on disk.
+ */
+export async function captureAudioItem(opts: {
+  audio: Uint8Array
+  mime: string
+  actor: Actor
+  tokenId?: string | null
+  ts?: number
+}): Promise<string> {
+  const ts = opts.ts ?? Date.now()
+  const itemId = ulid()
+  const audio = await saveAudio(itemId, opts.audio, opts.mime)
+
+  await db.transaction(async (tx) => {
+    await tx.insert(events).values({
+      id: ulid(),
+      ts,
+      type: 'item.created',
+      itemId,
+      actor: opts.actor,
+      tokenId: opts.tokenId ?? null,
+      payload: { raw: '', kind: 'note', tags: [], title: null, body: '', audio },
+    })
+    await tx.insert(items).values({
+      id: itemId,
+      createdTs: ts,
+      updatedTs: ts,
+      kind: 'note',
+      title: null,
+      body: '',
+      status: 'open',
+      tags: [],
+      firstCapture: '',
+      audio,
+    })
+  })
+
+  return itemId
+}
+
+/** Fold a transcript into an item: the same parsing a typed capture gets. */
+function applyTranscript(cur: Item, text: string): void {
+  const parsed = parseCapture(text)
+  cur.firstCapture = text
+  cur.body = parsed.body
+  if (!cur.title) cur.title = parsed.title
+  if (cur.kind === 'note') cur.kind = parsed.kind
+  cur.tags = [...new Set([...cur.tags, ...parsed.tags])]
+}
+
+/**
+ * Append an `item.transcribed` event. Re-transcribing (a better model, a
+ * better glossary) is just another one of these; the newest wins.
+ */
+export async function transcribeItem(opts: {
+  itemId: string
+  text: string
+  model: string
+  prompt?: string
+  actor?: Actor
+  ts?: number
+}): Promise<string> {
+  const item = await requireItem(opts.itemId)
+  const ts = opts.ts ?? Date.now()
+  const eventId = ulid()
+  const next = { ...item, tags: [...item.tags] }
+  applyTranscript(next, opts.text)
+
+  await db.transaction(async (tx) => {
+    await tx.insert(events).values({
+      id: eventId,
+      ts,
+      type: 'item.transcribed',
+      itemId: opts.itemId,
+      actor: opts.actor ?? 'agent:whisper',
+      tokenId: null,
+      payload: { text: opts.text, model: opts.model, prompt: opts.prompt ?? null },
+    })
+    await tx
+      .update(items)
+      .set({
+        firstCapture: next.firstCapture,
+        body: next.body,
+        title: next.title,
+        kind: next.kind,
+        tags: next.tags,
+        transcribedTs: ts,
+        updatedTs: ts,
+      })
+      .where(eq(items.id, opts.itemId))
+  })
+
+  return eventId
+}
+
+/** Voice captures still waiting for a transcript (oldest first). */
+export async function listUntranscribed(limit = 20) {
+  return db
+    .select()
+    .from(items)
+    .where(and(isNotNull(items.audio), isNull(items.transcribedTs)))
+    .orderBy(asc(items.createdTs))
+    .limit(limit)
 }
 
 /** List items for the triage UI / agent queries. */
@@ -234,12 +344,15 @@ export async function enrichItem(opts: {
   return eventId
 }
 
-/** Items awaiting their first enrichment (oldest first), for the sweep worker. */
+/**
+ * Items awaiting their first enrichment (oldest first), for the sweep worker.
+ * A voice capture has no text until it is transcribed, so it waits.
+ */
 export async function listUnenriched(limit = 20) {
   return db
     .select()
     .from(items)
-    .where(isNull(items.enrichedTs))
+    .where(and(isNull(items.enrichedTs), ne(items.firstCapture, '')))
     .orderBy(asc(items.createdTs))
     .limit(limit)
 }
@@ -268,8 +381,19 @@ export async function rebuildProjection(): Promise<number> {
           firstCapture: (p.raw as string) ?? '',
           summary: null,
           enrichedTs: null,
+          audio: (p.audio as AudioRef | undefined) ?? null,
+          transcribedTs: null,
         })
         break
+      case 'item.transcribed': {
+        const cur = byItem.get(ev.itemId)
+        if (cur && typeof p.text === 'string') {
+          applyTranscript(cur, p.text)
+          cur.transcribedTs = ev.ts
+          cur.updatedTs = ev.ts
+        }
+        break
+      }
       case 'item.edited': {
         const cur = byItem.get(ev.itemId)
         if (cur) {

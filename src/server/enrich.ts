@@ -56,6 +56,9 @@ async function runEnrichment(itemId: string): Promise<void> {
   const data = await getItem(itemId)
   if (!data || data.item.enrichedTs) return
   const { item } = data
+  // A voice capture has no text until it's transcribed; the transcriber
+  // enqueues enrichment again once it does.
+  if (!item.firstCapture.trim()) return
 
   const res = await c.messages.parse({
     model: env.enrichModel,

@@ -7,7 +7,10 @@ import { nitro } from 'nitro/vite'
 export default defineConfig({
   resolve: { tsconfigPaths: true },
   plugins: [
-    nitro({ rollupConfig: { external: [/^@sentry\//] } }),
+    nitro({
+      rollupConfig: { external: [/^@sentry\//] },
+      plugins: ['./src/server/plugins/workers.ts'],
+    }),
     tailwindcss(),
     tanstackStart(),
     viteReact(),

@@ -195,6 +195,11 @@ function CardBody({ item, pending }: { item: Item; pending?: boolean }) {
       <div className="mb-1 flex items-center gap-2">
         <StatusDot status={item.status} />
         <KindBadge kind={item.kind} />
+        {item.audio && (
+          <span className="text-xs text-gray-400" title="Voice capture">
+            🎙
+          </span>
+        )}
         {pending && (
           <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-950 dark:text-amber-300">
             pending
@@ -211,7 +216,11 @@ function CardBody({ item, pending }: { item: Item; pending?: boolean }) {
             : 'text-gray-800 dark:text-gray-200'
         }`}
       >
-        {truncate(item.body, 240)}
+        {item.audio && !item.transcribedTs ? (
+          <span className="italic text-gray-400">Transcribing…</span>
+        ) : (
+          truncate(item.body, 240)
+        )}
       </p>
       {item.tags.length > 0 && (
         <div className="mt-2">

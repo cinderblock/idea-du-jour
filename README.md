@@ -54,6 +54,31 @@ hold the Action button, speak, and it lands in your inbox.
 URLs), delete the Dictate step, and set the Request Body to *Shortcut Input* — lets you send
 selected text or a link to idj from any app.
 
+### Voice capture — "Record to idj"
+
+For anything longer than a sentence, record audio instead of dictating. Dictation stops
+on a pause and mishears names; a recording keeps everything, and the server transcribes
+it with Whisper, biased toward your own vocabulary (server names, your tags). The
+recording is kept, so a bad transcript can always be redone.
+
+1. **Record Audio** — Audio Quality *Normal*, Start Recording *Immediately*, Finish
+   Recording *On Tap* (it never stops on a pause).
+2. **Save File** — save the *Recorded Audio* to iCloud Drive (e.g. `Shortcuts/idj`), *Ask
+   Where to Save* off. A dead network can then never lose a recording.
+3. **Get Contents of URL** — `https://idj.isozilla.com/api/capture`, `POST`, header
+   `Authorization` = `Bearer <capture token>`, **Request Body: File** → *Recorded Audio*.
+4. *(optional)* **Show Notification** to confirm it landed.
+
+Bind it to the **Action button**. Don't trigger it with "Hey Siri": since iOS 16.4 *Record
+Audio* freezes when a shortcut is started by voice.
+
+The endpoint takes the recording as the raw body (`audio/*` or `application/octet-stream`)
+or as a multipart form part, up to 50 MB (Caddy in front caps bodies at 10 MB, about
+20 minutes at *Normal*). It answers `{"id": …, "audio": true}` at once; the item shows
+"Transcribing…" until the transcript lands, then gets enriched like any other capture. If
+the Whisper server is down or not configured, recordings wait and a sweep retries them
+every 5 minutes; `bun run transcribe:pending` forces it.
+
 > The capture token is **write-only** (it can only append), so a shortcut leaking it can't
 > read your inbox. Mint one against prod with
 > `docker exec idj bun run token:mint capture "siri"` (or the settings UI, once built).
@@ -106,9 +131,10 @@ Sync, so syncing happens when the app is next open + online (nothing is lost). N
 
 | Method + path | Scope | Purpose |
 |---|---|---|
-| `POST /api/capture` | capture | Append an item (raw text or JSON). |
+| `POST /api/capture` | capture | Append an item (raw text, JSON, or an audio recording). |
 | `GET /api/items?status=&kind=&limit=` | agent | List/query items. |
 | `GET /api/items/:id` | agent | One item + its full event history. |
+| `GET /api/items/:id/audio` | agent | A voice capture's original recording (also the web session). |
 | `POST /api/items/:id/comment` | agent | Add a comment (raw text or `{text}`). |
 | `POST /api/items/:id/done` · `/reopen` | agent | Change status. |
 | `GET /api/events?since=<seq>` | agent | Append-only cursor feed (`nextCursor`). |
@@ -117,7 +143,8 @@ Sync, so syncing happens when the app is next open + online (nothing is lost). N
 
 See scripts: `bun run dev` · `typecheck` · `build` · `db:migrate` · `db:generate` ·
 `db:rebuild` (replay log → projection) · `token:mint <capture|agent> "<label>"` ·
-`icons:gen` (regenerate PWA icons) · `enrich:pending` (enrich items captured before a key existed).
+`icons:gen` (regenerate PWA icons) · `enrich:pending` (enrich items captured before a key existed) ·
+`transcribe:pending` (transcribe recordings that are still waiting).
 
 ### Reading the inbox with Claude (the `idj-triage` skill)
 

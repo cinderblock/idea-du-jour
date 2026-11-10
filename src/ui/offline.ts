@@ -91,6 +91,8 @@ export function pendingItems(): Array<Item & { pending: true }> {
         firstCapture: p.text,
         summary: null,
         enrichedTs: null,
+        audio: null,
+        transcribedTs: null,
         pending: true as const,
       }
     })

@@ -23,4 +23,39 @@ export const env = {
   anthropicApiKey: process.env.ANTHROPIC_API_KEY,
   enrichModel: process.env.ENRICH_MODEL ?? 'claude-sonnet-5',
   enrichEnabled: (process.env.ENRICH_ENABLED ?? 'true') !== 'false',
+
+  /**
+   * Voice captures. Recordings are kept on disk; by default in an `audio/`
+   * folder next to the SQLite file, so they share its volume and its backups.
+   */
+  audioDir: process.env.AUDIO_DIR ?? defaultAudioDir(),
+  /** Largest recording accepted, in bytes. Caddy in front also caps the body. */
+  audioMaxBytes: Number(process.env.AUDIO_MAX_BYTES ?? 50 * 1024 * 1024),
+
+  /**
+   * Transcription: an OpenAI-compatible `POST /v1/audio/transcriptions`
+   * endpoint (faster-whisper via speaches, whisper.cpp's server with
+   * `--inference-path`, or OpenAI itself). Unset = recordings are stored and
+   * wait, untranscribed, until it is configured; nothing is lost.
+   */
+  transcribeUrl: process.env.TRANSCRIBE_URL,
+  transcribeApiKey: process.env.TRANSCRIBE_API_KEY,
+  transcribeModel: process.env.TRANSCRIBE_MODEL ?? 'Systran/faster-whisper-large-v3',
+  transcribeLanguage: process.env.TRANSCRIBE_LANGUAGE ?? 'en',
+  /**
+   * Comma-separated words Whisper tends to mangle (server names, project
+   * jargon). Sent as the prompt, together with the inbox's most-used tags.
+   */
+  transcribeGlossary:
+    process.env.TRANSCRIBE_GLOSSARY ??
+    'idj, Tuzfal, Uberfall, Pokol, Beelzebub, Firefly, Jackson, Iris, Sentinel, Steamboat, isozilla, Math Camp, shade pyramids, T-parts, tarps, bins',
+  /** How often the retry sweep looks for untranscribed recordings. 0 = never. */
+  transcribeSweepMs: Number(process.env.TRANSCRIBE_SWEEP_MS ?? 5 * 60 * 1000),
+}
+
+function defaultAudioDir(): string {
+  const url = process.env.DATABASE_URL ?? 'file:./data/idj.db'
+  const file = url.replace(/^file:/, '')
+  const slash = Math.max(file.lastIndexOf('/'), file.lastIndexOf('\\'))
+  return `${slash >= 0 ? file.slice(0, slash) : '.'}/audio`
 }

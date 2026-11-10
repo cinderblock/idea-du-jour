@@ -49,7 +49,22 @@ export const items = sqliteTable('items', {
   summary: text('summary'),
   /** When an agent last enriched this item (null = not yet enriched). */
   enrichedTs: integer('enriched_ts'),
+  /**
+   * A voice capture's recording, kept on disk next to the database. Null for
+   * text captures. The audio is the durable artifact; the body is derived from it.
+   */
+  audio: text('audio', { mode: 'json' }).$type<AudioRef>(),
+  /** When the audio was last transcribed (null = not yet, or no audio). */
+  transcribedTs: integer('transcribed_ts'),
 })
+
+/** Where a voice capture's recording lives. `file` is relative to the audio dir. */
+export type AudioRef = {
+  file: string
+  mime: string
+  bytes: number
+  sha256: string
+}
 
 /**
  * tokens — bearer API tokens. Two scopes:

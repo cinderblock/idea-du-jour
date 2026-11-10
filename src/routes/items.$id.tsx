@@ -63,9 +63,24 @@ function ItemDetail() {
           </span>
         </div>
 
-        <p className="whitespace-pre-wrap break-words text-[15px] leading-relaxed text-gray-800 dark:text-gray-100">
-          {item.body}
-        </p>
+        {item.audio && (
+          <audio
+            controls
+            preload="metadata"
+            src={`/api/items/${item.id}/audio`}
+            className="mb-3 w-full"
+          />
+        )}
+
+        {item.audio && !item.transcribedTs ? (
+          <p className="text-sm italic text-gray-400">
+            Voice capture, waiting to be transcribed…
+          </p>
+        ) : (
+          <p className="whitespace-pre-wrap break-words text-[15px] leading-relaxed text-gray-800 dark:text-gray-100">
+            {item.body}
+          </p>
+        )}
 
         {item.summary && (
           <p className="mt-3 border-l-2 border-amber-300 pl-3 text-sm italic text-gray-500 dark:border-amber-700 dark:text-gray-400">
@@ -125,7 +140,11 @@ function ActivityRow({ ev }: { ev: Event }) {
   }
 
   const label: Record<string, string> = {
-    'item.created': 'captured',
+    'item.created': (ev.payload as { audio?: unknown }).audio
+      ? 'captured (voice)'
+      : 'captured',
+    'item.transcribed': 'transcribed',
+    'item.enriched': 'enriched',
     'item.done': 'marked done',
     'item.reopened': 'reopened',
     'item.archived': 'archived',
