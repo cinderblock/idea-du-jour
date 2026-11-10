@@ -201,6 +201,35 @@ existing idj tags, and a hand-written Math Camp list (shade pyramids, T-parts, t
 **Risk to design for:** a lost 3-minute recording is far worse than today's failed text POST.
 The Shortcut should save to Files first and upload second, so a dead network never eats audio.
 
+### Agent dispatch: idj capture -> T3 Code thread — PROPOSED (nothing built)
+Asked 2026-11-10: have T3 Code notice captures addressed to it and start or continue threads.
+
+**What T3 Code offers (checked 2026-11-10):** `schedule_task` takes a trigger of
+`interval` (min 60 s), `fixed_time`, `once`, or **`webhook`**. A webhook task gets a URL
+(needs T3 Connect remote access on), can filter on `body.*` / `headers.*`, verify an HMAC
+signature, dedupe and coalesce, and hold deliveries that arrive while the PC is offline
+(`maxDeliveryAgeMinutes`). Each run is an agent turn that can call `t3_thread_launch` /
+`t3_thread_send`. No scheduled tasks exist yet.
+
+**Proposed shape (push, not poll):**
+1. Addressing: only captures that are explicitly marked go to an agent, e.g. a `t3:` or
+   `@<project>:` prefix (parsed like `todo:`), so ordinary notes never start an agent turn.
+2. idj server: after capture, if the item is addressed, POST `{itemId, project?}` (no text) to
+   the T3 webhook URL, HMAC-signed. Fire-and-forget like `enrich.ts`; failures are retried
+   from a `dispatchedTs` column, never block capture.
+3. T3 webhook task (filter `body.itemId exists`, dedupe on itemId): a dispatcher prompt
+   fetches the item with the agent token, picks the project (`t3_project_list`), launches
+   a thread (or `t3_thread_send` to one referenced in the capture), then comments the thread
+   link back on the idj item so the phone shows where it went.
+4. Fallback: a low-frequency `interval` task (e.g. hourly) that sweeps `/api/events?since=`
+   for addressed items with no dispatch comment, in case a webhook was lost.
+
+**Security:** this turns the write-only capture token into "can start an agent on the desktop".
+Mitigations: webhook carries only an id (the text is fetched, and treated as the user's prompt
+only because it came from an authenticated capture); HMAC on the webhook; launched threads
+default to a non-full-access runtime mode; maybe require an addressed capture to come from a
+token flagged `dispatch` rather than any capture token.
+
 ### Claude triage skill (built)
 - `.claude/skills/idj-triage/` — a **project skill** (committed, versioned with the API it
   calls). Invoked in Claude Code ("triage my inbox"), it reads `GET /api/items?status=open`,
@@ -395,6 +424,10 @@ repo — the established mechanism (`servers/lib/ensure-github-runner.sh` docume
 2. **Device tests needed before any server work** (5 minutes, needs the phone): does
    `Get Contents of URL` cleanly post a `Record Audio` output as multipart, and how does
    `Record Audio` actually behave from *your* Action button on *your* iOS version?
+
+3. **Agent dispatch (see "Agent dispatch" section):** addressing syntax (`t3:` vs
+   `@project:`), runtime mode for auto-launched threads, start-new vs continue-existing, and
+   whether T3 Connect remote access may be turned on for the webhook URL.
 
 ## Things not to do
 - Don't wire audio capture to a **Siri voice trigger** — `Record Audio` hangs when invoked by
