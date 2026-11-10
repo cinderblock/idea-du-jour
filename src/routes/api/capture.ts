@@ -4,6 +4,7 @@ import { enqueueEnrichment } from '../../server/enrich'
 import { env } from '../../server/env'
 import { captureAudioItem, captureItem } from '../../server/events'
 import { enqueueTranscription } from '../../server/transcribe'
+import { notifyTranscriptionQueued } from '../../server/transcribeQueue'
 import { AuthError, authenticate } from '../../server/tokens'
 
 type CaptureBody = {
@@ -80,6 +81,7 @@ export const Route = createFileRoute('/api/capture')({
 
           const id = await captureAudioItem({ audio: bytes, mime, actor: 'siri', tokenId })
           enqueueTranscription(id)
+          notifyTranscriptionQueued()
           return Response.json({ id, audio: true }, { status: 201 })
         }
 

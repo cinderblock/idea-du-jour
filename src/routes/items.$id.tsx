@@ -72,7 +72,7 @@ function ItemDetail() {
           />
         )}
 
-        {item.audio && !item.transcribedTs ? (
+        {item.audio && !item.transcribedTs && !item.body ? (
           <p className="text-sm italic text-gray-400">
             Voice capture, waiting to be transcribed…
           </p>
@@ -144,6 +144,7 @@ function ActivityRow({ ev }: { ev: Event }) {
       ? 'captured (voice)'
       : 'captured',
     'item.transcribed': 'transcribed',
+    'item.transcription_requested': 'sent for re-transcription',
     'item.enriched': 'enriched',
     'item.done': 'marked done',
     'item.reopened': 'reopened',

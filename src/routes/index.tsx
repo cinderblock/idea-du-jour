@@ -216,7 +216,7 @@ function CardBody({ item, pending }: { item: Item; pending?: boolean }) {
             : 'text-gray-800 dark:text-gray-200'
         }`}
       >
-        {item.audio && !item.transcribedTs ? (
+        {item.audio && !item.transcribedTs && !item.body ? (
           <span className="italic text-gray-400">Transcribing…</span>
         ) : (
           truncate(item.body, 240)

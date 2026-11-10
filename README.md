@@ -79,6 +79,15 @@ or as a multipart form part, up to 50 MB (Caddy in front caps bodies at 10 MB, a
 the Whisper server is down or not configured, recordings wait and a sweep retries them
 every 5 minutes; `bun run transcribe:pending` forces it.
 
+**Where transcription runs.** Two modes, same result:
+- *Pull (production):* `bun run transcribe:worker` (`scripts/transcribe-worker.ts`) runs on
+  the GPU box (sentinel) next to a [speaches](https://github.com/speaches-ai/speaches)
+  (faster-whisper) container. It long-polls `/api/transcribe/queue` over HTTPS, transcribes
+  locally, and posts the text back, so the GPU box needs no inbound access. New captures
+  wake it at once. Env: `IDJ_BASE_URL`, `IDJ_AGENT_TOKEN`, `WHISPER_URL`, optional
+  `TRANSCRIBE_MODEL` / `TRANSCRIBE_LANGUAGE` / `WHISPER_API_KEY`.
+- *Push:* set `TRANSCRIBE_URL` on the idj server and it calls Whisper itself.
+
 **The vocabulary is agent-maintained.** Whisper is primed with a word list (`/api/glossary`,
 versioned, append-only) plus your most-used tags. A scheduled T3 Code task reads recent
 voice transcripts, spots names Whisper got wrong, updates the list with a note saying why,
@@ -141,7 +150,9 @@ Sync, so syncing happens when the app is next open + online (nothing is lost). N
 | `GET /api/items?status=&kind=&limit=` | agent | List/query items. |
 | `GET /api/items/:id` | agent | One item + its full event history. |
 | `GET /api/items/:id/audio` | agent | A voice capture's original recording (also the web session). |
-| `POST /api/items/:id/retranscribe` | agent | Transcribe a recording again with the current glossary. |
+| `POST /api/items/:id/retranscribe` | agent | Queue a recording to be transcribed again with the current glossary (202). |
+| `GET /api/transcribe/queue?wait=8` | agent | Long-poll work queue for a remote transcription worker. |
+| `POST /api/items/:id/transcript` | agent | A worker's transcript: `{text, model, prompt?}`. |
 | `GET /api/glossary?history=N` | agent | Whisper vocabulary, the prompt it produces, past versions. |
 | `PUT /api/glossary` | agent | New vocabulary version: `{terms, note}`, most important first. |
 | `POST /api/items/:id/comment` | agent | Add a comment (raw text or `{text}`). |

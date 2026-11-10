@@ -165,6 +165,39 @@ export async function transcribeItem(opts: {
   return eventId
 }
 
+/**
+ * Ask for a recording to be transcribed again (e.g. after the glossary gained
+ * a name it mangled). Puts it back in the queue; the current text stays until
+ * the new transcript replaces it.
+ */
+export async function requestTranscription(opts: {
+  itemId: string
+  actor: Actor
+  tokenId?: string | null
+  reason?: string
+}): Promise<string> {
+  const item = await requireItem(opts.itemId)
+  if (!item.audio) throw new Error('not a voice capture')
+  const ts = Date.now()
+  const eventId = ulid()
+  await db.transaction(async (tx) => {
+    await tx.insert(events).values({
+      id: eventId,
+      ts,
+      type: 'item.transcription_requested',
+      itemId: opts.itemId,
+      actor: opts.actor,
+      tokenId: opts.tokenId ?? null,
+      payload: { reason: opts.reason ?? null },
+    })
+    await tx
+      .update(items)
+      .set({ transcribedTs: null, updatedTs: ts })
+      .where(eq(items.id, opts.itemId))
+  })
+  return eventId
+}
+
 /** Voice captures still waiting for a transcript (oldest first). */
 export async function listUntranscribed(limit = 20) {
   return db
@@ -385,6 +418,14 @@ export async function rebuildProjection(): Promise<number> {
           transcribedTs: null,
         })
         break
+      case 'item.transcription_requested': {
+        const cur = byItem.get(ev.itemId)
+        if (cur) {
+          cur.transcribedTs = null
+          cur.updatedTs = ev.ts
+        }
+        break
+      }
       case 'item.transcribed': {
         const cur = byItem.get(ev.itemId)
         if (cur && typeof p.text === 'string') {
