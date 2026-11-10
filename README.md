@@ -79,6 +79,12 @@ or as a multipart form part, up to 50 MB (Caddy in front caps bodies at 10 MB, a
 the Whisper server is down or not configured, recordings wait and a sweep retries them
 every 5 minutes; `bun run transcribe:pending` forces it.
 
+**The vocabulary is agent-maintained.** Whisper is primed with a word list (`/api/glossary`,
+versioned, append-only) plus your most-used tags. A scheduled T3 Code task reads recent
+voice transcripts, spots names Whisper got wrong, updates the list with a note saying why,
+and re-transcribes the affected recordings. Until the first version is saved, the
+`TRANSCRIBE_GLOSSARY` env default is used.
+
 > The capture token is **write-only** (it can only append), so a shortcut leaking it can't
 > read your inbox. Mint one against prod with
 > `docker exec idj bun run token:mint capture "siri"` (or the settings UI, once built).
@@ -135,6 +141,9 @@ Sync, so syncing happens when the app is next open + online (nothing is lost). N
 | `GET /api/items?status=&kind=&limit=` | agent | List/query items. |
 | `GET /api/items/:id` | agent | One item + its full event history. |
 | `GET /api/items/:id/audio` | agent | A voice capture's original recording (also the web session). |
+| `POST /api/items/:id/retranscribe` | agent | Transcribe a recording again with the current glossary. |
+| `GET /api/glossary?history=N` | agent | Whisper vocabulary, the prompt it produces, past versions. |
+| `PUT /api/glossary` | agent | New vocabulary version: `{terms, note}`, most important first. |
 | `POST /api/items/:id/comment` | agent | Add a comment (raw text or `{text}`). |
 | `POST /api/items/:id/done` · `/reopen` | agent | Change status. |
 | `GET /api/events?since=<seq>` | agent | Append-only cursor feed (`nextCursor`). |

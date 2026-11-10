@@ -82,6 +82,25 @@ export const tokens = sqliteTable('tokens', {
   revokedTs: integer('revoked_ts'),
 })
 
+/**
+ * glossary_versions — the word list Whisper is primed with (server names, project
+ * jargon). Append-only like `events`: every edit is a new full version, the
+ * newest is current, and older ones are the history. Maintained by an agent
+ * (a scheduled T3 task) through `PUT /api/glossary`.
+ */
+export const glossaryVersions = sqliteTable('glossary_versions', {
+  seq: integer('seq').primaryKey({ autoIncrement: true }),
+  ts: integer('ts').notNull(),
+  actor: text('actor').notNull(),
+  tokenId: text('token_id'),
+  /** Ordered most-important first: the prompt has a length budget and keeps the head. */
+  terms: text('terms', { mode: 'json' }).notNull().$type<GlossaryTerm[]>(),
+  /** Why this version was made — what was added or dropped, and the evidence. */
+  note: text('note'),
+})
+
+export type GlossaryTerm = { term: string; note?: string }
+
 /** users — single-user for now, but modeled as a table for WebAuthn (later). */
 export const users = sqliteTable('users', {
   id: text('id').primaryKey(),

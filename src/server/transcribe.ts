@@ -1,10 +1,8 @@
-import { desc } from 'drizzle-orm'
-import { db } from '../db/client'
-import { items } from '../db/schema'
 import { readAudio } from './audio'
 import { enqueueEnrichment } from './enrich'
 import { env } from './env'
 import { getItem, listUntranscribed, transcribeItem } from './events'
+import { buildPrompt } from './glossary'
 
 /**
  * Async transcription of voice captures, shaped like `enrich.ts`: capture
@@ -27,12 +25,25 @@ export function enqueueTranscription(itemId: string): void {
   })
 }
 
-async function runTranscription(itemId: string): Promise<boolean> {
-  if (!env.transcribeUrl || inFlight.has(itemId)) return false
+/**
+ * Transcribe a recording again with the current glossary (e.g. after an agent
+ * added a name it mangled). Throws on failure; returns the new text.
+ */
+export async function retranscribe(itemId: string): Promise<string | null> {
+  return runTranscription(itemId, { force: true })
+}
+
+/** Returns the transcript, or null when there was nothing to do. */
+async function runTranscription(
+  itemId: string,
+  opts: { force?: boolean } = {},
+): Promise<string | null> {
+  if (!env.transcribeUrl || inFlight.has(itemId)) return null
   inFlight.add(itemId)
   try {
     const data = await getItem(itemId)
-    if (!data?.item.audio || data.item.transcribedTs) return false
+    if (!data?.item.audio) return null
+    if (data.item.transcribedTs && !opts.force) return null
     const { audio } = data.item
 
     const prompt = await buildPrompt()
@@ -60,13 +71,14 @@ async function runTranscription(itemId: string): Promise<boolean> {
     if (!text) {
       // Silence or a pocket recording. Record it, so the sweep stops retrying,
       // and leave a visible marker rather than an empty card.
-      await transcribeItem({ itemId, text: '(no speech detected)', model: env.transcribeModel, prompt })
-      return true
+      const none = '(no speech detected)'
+      await transcribeItem({ itemId, text: none, model: env.transcribeModel, prompt })
+      return none
     }
 
     await transcribeItem({ itemId, text, model: env.transcribeModel, prompt })
     enqueueEnrichment(itemId)
-    return true
+    return text
   } finally {
     inFlight.delete(itemId)
   }
@@ -81,42 +93,13 @@ function endpoint(url: string): string {
   return /\/audio\/transcriptions$|\/inference$/.test(u) ? u : `${u}/v1/audio/transcriptions`
 }
 
-/**
- * Whisper's prompt biases spelling toward the words in it. Feed it the static
- * glossary plus the inbox's most-used tags, which track what is being talked
- * about lately. Kept short: Whisper only reads the last ~224 tokens.
- */
-async function buildPrompt(): Promise<string> {
-  const glossary = env.transcribeGlossary
-    .split(',')
-    .map((w) => w.trim())
-    .filter(Boolean)
-
-  const recent = await db
-    .select({ tags: items.tags })
-    .from(items)
-    .orderBy(desc(items.createdTs))
-    .limit(200)
-  const counts = new Map<string, number>()
-  for (const row of recent) for (const t of row.tags) counts.set(t, (counts.get(t) ?? 0) + 1)
-  const tags = [...counts.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 30)
-    .map(([t]) => t.replace(/-/g, ' '))
-
-  const words = [...new Set([...glossary, ...tags])]
-  let prompt = words.join(', ')
-  if (prompt.length > 600) prompt = prompt.slice(0, prompt.lastIndexOf(',', 600))
-  return prompt ? `Vocabulary: ${prompt}.` : ''
-}
-
 /** Retry every untranscribed recording. Returns how many were transcribed. */
 export async function transcribePending(limit = 20): Promise<number> {
   if (!env.transcribeUrl) return 0
   let done = 0
   for (const item of await listUntranscribed(limit)) {
     try {
-      if (await runTranscription(item.id)) done++
+      if ((await runTranscription(item.id)) !== null) done++
     } catch (err) {
       // One line, not a stack: while Whisper is down this repeats every sweep.
       const msg = err instanceof Error ? err.message : String(err)
