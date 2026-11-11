@@ -379,7 +379,10 @@ repo — the established mechanism (`servers/lib/ensure-github-runner.sh` docume
 - [x] Voice capture endpoint + transcriber + playback (2026-11-10).
 - [x] Shipped: idj `916e191` (ops `edcdfe27`), then `c53dbb9` (ops `1a8a390a`).
 - [x] Pull worker + sentinel stack `idj-whisper` (idj `c53dbb9`, ops `1a8a390a`).
-- [ ] **Current:** sentinel deploy verified, then the user's phone test end to end.
+- [x] sentinel deploy verified; GPU transcription checked with real speech (glossary fixes
+      "tusful" -> "Tuzfal").
+- [x] Caddy 10 MB body cap on idj removed at user's request (ops `1b3c5c65`).
+- [ ] **Current:** user's phone voice test end to end (shortcut had an empty header row).
 - [x] Agent-maintained vocabulary (`916e191`): `glossary_versions` table, `GET/PUT /api/glossary`,
       `POST /api/items/:id/retranscribe`. T3 scheduled task "idj: maintain Whisper vocabulary"
       (`scheduled-task:11fa3070-f3d3-4d51-9503-8d9751c1abe1`, project idea-du-jour, daily 4:00 AM
@@ -387,6 +390,11 @@ repo — the established mechanism (`servers/lib/ensure-github-runner.sh` docume
 - [x] Pin for `916e191` approved and pushed.
 
 ## Findings / gotchas
+- **iOS "The network connection was lost" from Get Contents of URL = an empty header row**
+  (found 2026-11-10). The request never leaves the phone: idj, Cloudflare and even a
+  non-Cloudflare URL on firefly all "fail" identically, and no server logs anything. Ruled out
+  first, at length: Cloudflare (h1, h2, chunked, streamed uploads all fine), Caddy's body cap,
+  the app. Check the shortcut's Headers list for a blank row before debugging servers.
 - **Pushing idj `master` IS a deploy (since ops Renovate "App deploys").** Renovate follows
   idj's `:latest` and fast-forwards ops `master` (automerge, any time), which deploys. That is
   how the broken `be9bde7` reached prod: ops `3fa934d7`, 2026-11-07 9:31 AM PST (17:31Z),

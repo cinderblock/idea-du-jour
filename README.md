@@ -69,6 +69,12 @@ recording is kept, so a bad transcript can always be redone.
    `Authorization` = `Bearer <capture token>`, **Request Body: File** → *Recorded Audio*.
 4. *(optional)* **Show Notification** to confirm it landed.
 
+**If it fails with "The network connection was lost":** look for an empty row in *Get
+Contents of URL → Headers*. A header with a blank key or value makes iOS drop the request
+before it leaves the phone, so no server ever sees it. (Duplicating a shortcut can carry
+one over.) `/api/echo` is the place to point a misbehaving shortcut: it reports exactly
+what arrived and saves nothing.
+
 Bind it to the **Action button**. Don't trigger it with "Hey Siri": since iOS 16.4 *Record
 Audio* freezes when a shortcut is started by voice.
 
