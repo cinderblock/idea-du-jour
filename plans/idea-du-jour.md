@@ -145,6 +145,19 @@ Non-negotiables:
 - **The Shortcut's internal wiring is UNTESTED** (no iOS device here). If import misbehaves,
   the hand-build steps on `/setup` are known-good.
 
+### Installable signed shortcut via the new M1 Mac — IN PROGRESS (2026-11-10)
+New information that reopens the signing dead end above: Cameron has a new **M1 Mac**. A fresh
+macOS signed into his Apple ID shouldn't have the mini's broken Shortcuts/iCloud state.
+Reuse ops `servers/camerons-mini/sign-shortcuts.sh` + `com.tacklind.shortcut-signer.plist`
+(drop-folder LaunchAgent running in the GUI session; `shortcuts sign` can't run over plain SSH).
+Plan: (1) M1 set up: Apple ID + iCloud Drive + Shortcuts iCloud Sync, Remote Login, stays
+logged in; (2) prove `shortcuts sign` in its GUI session; (3) install the signer agent there
+(ops, needs approval); (4) generator in idj for "Record to IDJ" (record-or-type, upload, notify)
+with the capture token as an **import question**, so the signed file holds no secret;
+(5) `/setup` serves the signed file; one tap installs it.
+Why: building shortcuts by tapping on the phone is slow and error-prone (empty header row,
+2026-11-10), and a generated file is versioned with the API it calls.
+
 ### Voice capture: record audio + server-side Whisper — BUILT (idj side); Whisper host pending
 Researched 2026-08-09 after the Math Camp dictation burst exposed both failure modes at once.
 Decided 2026-11-10: transcription on `sentinel`. idj side built 2026-11-10:
@@ -401,7 +414,9 @@ repo — the established mechanism (`servers/lib/ensure-github-runner.sh` docume
       Shortcut: Record Audio -> Save File -> Get Contents of URL (File body) -> Get Dictionary
       Value `id` -> If has any value: notification, Otherwise: Show Result.
 - [x] idj -> T3 dispatch built and approved (idj `b10b7ec`, ops `e65ec359`).
-- [ ] **Current:** deploy verified, then a test capture from the phone produces a thread.
+- [x] Dispatch live on firefly (`b10b7ec` + ops `e65ec359`), env verified.
+- [ ] Phone test of dispatch: one quick-tap typed capture + one voice capture -> threads.
+- [ ] **Current:** signed installable shortcut via the M1 (section above).
 - [x] Agent-maintained vocabulary (`916e191`): `glossary_versions` table, `GET/PUT /api/glossary`,
       `POST /api/items/:id/retranscribe`. T3 scheduled task "idj: maintain Whisper vocabulary"
       (`scheduled-task:11fa3070-f3d3-4d51-9503-8d9751c1abe1`, project idea-du-jour, daily 4:00 AM
