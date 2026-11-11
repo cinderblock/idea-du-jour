@@ -221,7 +221,21 @@ existing idj tags, and a hand-written Math Camp list (shade pyramids, T-parts, t
 **Risk to design for:** a lost 3-minute recording is far worse than today's failed text POST.
 The Shortcut should save to Files first and upload second, so a dead network never eats audio.
 
-### Agent dispatch: idj capture -> T3 Code thread — PROPOSED (nothing built)
+### Agent dispatch: idj capture -> T3 Code thread — BUILT 2026-11-10 (idj `b10b7ec`, ops `e65ec359`)
+**As built:** idj POSTs `{event:"idj.capture", itemId, kind, voice, createdTs, url}` signed
+`X-Idj-Signature: sha256=<hex HMAC>` to T3 webhook task "idj: dispatch captures to threads"
+(`scheduled-task:170e6542-f298-4848-a8b7-7d22462439db`, project idea-du-jour, fresh session per
+run; filters `body.event == idj.capture`, dedupe `{{body.itemId}}`, signature header
+`x-idj-signature`). URL = `https://t3.isozilla.com/api/hooks/<task>/<token>` (token is not
+shown by the T3 tool; read from `~/.t3/userdata/statev2.sqlite` `scheduled_tasks.webhook_token`).
+Secrets: ops `FIREFLY_T3_DISPATCH_URL`, `FIREFLY_T3_DISPATCH_SECRET`. The task reads the item,
+picks a project (or `scratch`), `t3_thread_launch` with `auto-accept-edits`, comments
+`T3 thread: <link>` on the item, and skips items that already have a `t3-thread://` comment.
+Only open items created in the last 24 h are sent; voice after transcription; sweep every 2 min.
+Tested 2026-11-10: bad signature 401, wrong token 404, replay "duplicate", real delivery ->
+thread + link-back in ~70 s (test thread archived).
+
+**Original proposal (kept for the reasoning):**
 Asked 2026-11-10: have T3 Code notice captures addressed to it and start or continue threads.
 
 **What T3 Code offers (checked 2026-11-10):** `schedule_task` takes a trigger of
@@ -386,7 +400,8 @@ repo — the established mechanism (`servers/lib/ensure-github-runner.sh` docume
       idj (96 KB m4a) -> sentinel worker -> "This is a test. Does it work?" in 3.0 s.
       Shortcut: Record Audio -> Save File -> Get Contents of URL (File body) -> Get Dictionary
       Value `id` -> If has any value: notification, Otherwise: Show Result.
-- [ ] **Next (user's call):** idj -> T3 dispatch (designed in "Agent dispatch" above).
+- [x] idj -> T3 dispatch built and approved (idj `b10b7ec`, ops `e65ec359`).
+- [ ] **Current:** deploy verified, then a test capture from the phone produces a thread.
 - [x] Agent-maintained vocabulary (`916e191`): `glossary_versions` table, `GET/PUT /api/glossary`,
       `POST /api/items/:id/retranscribe`. T3 scheduled task "idj: maintain Whisper vocabulary"
       (`scheduled-task:11fa3070-f3d3-4d51-9503-8d9751c1abe1`, project idea-du-jour, daily 4:00 AM
