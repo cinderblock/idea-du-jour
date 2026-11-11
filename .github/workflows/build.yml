@@ -62,6 +62,23 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # Boot the real image and make real requests before anything is published.
+      # Pushing master deploys (ops Renovate follows :latest), so this is the
+      # last gate. See scripts/smoke.sh for why it exists.
+      - name: Build image for the smoke test
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          load: true
+          push: false
+          build-args: |
+            GIT_SHA=${{ github.sha }}
+          tags: idj:smoke
+          cache-from: type=gha
+
+      - name: Smoke test the image
+        run: scripts/smoke.sh idj:smoke ${{ github.sha }}
+
       - name: Build and push
         id: push
         uses: docker/build-push-action@v7
@@ -100,6 +117,6 @@ jobs:
             echo '}'
             echo '```'
             echo
-            echo "Paste that into \`servers/firefly/stacks/idj/pin.json\`"
-            echo "in cinderblock/ops and push. Nothing reaches firefly until you do."
+            echo "ops Renovate follows :latest and deploys this to firefly (and the"
+            echo "sentinel transcription worker) by itself."
           } >> "$GITHUB_STEP_SUMMARY"
