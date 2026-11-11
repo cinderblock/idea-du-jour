@@ -145,6 +145,56 @@ Non-negotiables:
 - **The Shortcut's internal wiring is UNTESTED** (no iOS device here). If import misbehaves,
   the hand-build steps on `/setup` are known-good.
 
+### Device pairing: no token typed on the phone — PHASE 1 IN PROGRESS (2026-11-10)
+Requested by Cameron 2026-11-10 (relayed by the ops mini-signing thread): "do both and start
+with the pairing". Goal: installing the shortcut never asks for a token.
+
+**Phase 1: first-run pairing (building now)**
+- The public signed `/shortcut` has no import question and no token.
+- First run: the shortcut makes a long random device ID (SHA-256 of four random numbers plus
+  the time: 64 hex chars), saves it to iCloud Drive `Shortcuts/idj/device-id.txt`, and reads
+  it on later runs. Every capture sends headers `X-Idj-Device-Id`, `X-Idj-Device-Name`
+  (URL-encoded, since names like "Cameron’s iPhone" aren't ASCII and a non-ASCII header can
+  make iOS drop the request), and `X-Idj-Device-Model`.
+- Server, `devices` table: `id` (ulid), `idHash` (SHA-256 of the device ID, unique; the raw ID
+  is never stored), name, model, `status` (pending/approved/rejected/revoked), first/last
+  seen, decided-at. A capture from an unknown ID creates a pending device and is stored in
+  `pending_captures` (text, or audio kept under `audio/pending/`), not rejected, so nothing
+  is lost.
+- **Approve** releases the device's pending captures into the inbox with their original
+  timestamps as ordinary `item.created` events (so `db:rebuild` replays them; transcription,
+  enrichment and dispatch follow as for any capture). **Reject** deletes them and the
+  device stays refused. **Revoke** stops an approved device. Rejected or revoked IDs get 403.
+- Abuse limits for unapproved IDs: at most 20 pending captures per device, 25 MB of pending
+  audio per device, 20 pending devices in total, and 30 requests a minute per IP across
+  unapproved IDs. Past those limits: 429, and nothing is stored. A stranger with the
+  public file can only fill the pending list; nothing reaches the inbox.
+- Visibility: a banner on the inbox ("N captures waiting from a new device: review") plus a
+  `/devices` page (name, model, first and last seen, pending count, Approve / Reject /
+  Revoke).
+- Token auth (`Authorization: Bearer`) keeps working unchanged; if both are sent, the
+  token wins.
+- The server answers with `message`, which the shortcut shows as its notification, so the
+  wording ("Saved", "Saved; approve this phone at idj.isozilla.com/devices") is server-side.
+
+**Phase 2 (later, not built): personal pre-signed download per device**
+- Logged-in `/setup` "Install on this phone" creates an **already-approved** device, generates
+  the shortcut with that device ID embedded (no first-run step), signs it, and serves it
+  exactly once. Same server path and revoke as phase 1; the embedded ID is a credential.
+- The hard part: firefly can't reach the mini (TSL LAN). Options:
+  1. **Pull signer on the mini (recommended).** A LaunchAgent in the mini's GUI session
+     long-polls `GET /api/sign/queue` on idj (agent-scoped token), signs locally, and posts
+     the signed bytes back; the install page waits a few seconds, then downloads. Same shape
+     as sentinel's whisper worker; all connections outbound; nothing exposed.
+  2. Pull signer on sentinel relaying to the mini over the LAN (sentinel can reach the mini):
+     one more hop, and still needs the mini.
+  3. Expose the mini via a Cloudflare Tunnel with Access: inbound path to a GUI-session Mac;
+     more attack surface. Not recommended.
+  4. Pre-sign a pool of N device IDs ahead of time and hand them out: works while the mini is
+     offline, but leaves unused credentials lying around. Not recommended.
+  If the mini is offline, the page falls back to phase 1 (public file plus approval).
+  Anything on ops or the mini needs Cameron's per-change approval.
+
 ### Installable signed shortcut — BUILT 2026-11-10 (`c5f2611`), signed on the Mac mini
 **As built:** `scripts/gen-shortcut.ts` -> `build/record-to-idj.unsigned.shortcut`;
 `scripts/sign-shortcut.sh` signs on `mini` over ssh pipes (scp from Git Bash + Windows
@@ -431,7 +481,9 @@ repo — the established mechanism (`servers/lib/ensure-github-runner.sh` docume
 - [x] Dispatch live on firefly (`b10b7ec` + ops `e65ec359`), env verified.
 - [ ] Phone test of dispatch: one quick-tap typed capture + one voice capture -> threads.
 - [x] Signing works on the mini (ops thread); generator + signed install shipped (`c5f2611`).
-- [ ] **Current:** user installs from /setup and tests both paths (record, quick-stop type).
+- [ ] User installs and tests both paths (record, quick-stop type); superseded by pairing.
+- [ ] **Current:** device pairing phase 1 (section above).
+- [ ] Device pairing phase 2: design only, waiting for Cameron's go-ahead.
 - [x] Agent-maintained vocabulary (`916e191`): `glossary_versions` table, `GET/PUT /api/glossary`,
       `POST /api/items/:id/retranscribe`. T3 scheduled task "idj: maintain Whisper vocabulary"
       (`scheduled-task:11fa3070-f3d3-4d51-9503-8d9751c1abe1`, project idea-du-jour, daily 4:00 AM
@@ -546,6 +598,9 @@ repo — the established mechanism (`servers/lib/ensure-github-runner.sh` docume
 3. ~~Agent dispatch network path~~ Answered 2026-11-10: push to `t3.isozilla.com` (exists).
 
 ## Things not to do
+- Don't send shortcuts to Cameron by iMessage (BlueBubbles) for now: after those sends his
+  iPhone showed "Messages not syncing to iCloud" prompts (under investigation in the ops
+  thread). Install by Safari download from `/shortcut` instead.
 - Don't use T3 Connect for anything (user refuses it).
 - Don't wire audio capture to a **Siri voice trigger** — `Record Audio` hangs when invoked by
   Siri (iOS 16.4+). Action button only.
