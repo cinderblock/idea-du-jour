@@ -155,6 +155,10 @@ logged in; (2) prove `shortcuts sign` in its GUI session; (3) install the signer
 (ops, needs approval); (4) generator in idj for "Record to IDJ" (record-or-type, upload, notify)
 with the capture token as an **import question**, so the signed file holds no secret;
 (5) `/setup` serves the signed file; one tap installs it.
+**Update 2026-11-10:** Cameron chose to fix the existing **Mac mini** instead (SSH alias `mini`,
+10.255.2.207, macOS 12.7.6; `camerons-mini` alias fails host-key check). That work is in its own
+thread: t3-thread://v2/ab3781d7-a1dd-4bbb-b3e9-6331e19b7569/mcp:fd2d4a5d-d2ae-4fa8-b740-99113645dfdc
+(ops project). It reports back here when signing works; then steps (4)-(5) happen in idj.
 Why: building shortcuts by tapping on the phone is slow and error-prone (empty header row,
 2026-11-10), and a generated file is versioned with the API it calls.
 
@@ -416,7 +420,7 @@ repo — the established mechanism (`servers/lib/ensure-github-runner.sh` docume
 - [x] idj -> T3 dispatch built and approved (idj `b10b7ec`, ops `e65ec359`).
 - [x] Dispatch live on firefly (`b10b7ec` + ops `e65ec359`), env verified.
 - [ ] Phone test of dispatch: one quick-tap typed capture + one voice capture -> threads.
-- [ ] **Current:** signed installable shortcut via the M1 (section above).
+- [ ] **Waiting on the mini thread:** signing; then the shortcut generator + `/setup` install.
 - [x] Agent-maintained vocabulary (`916e191`): `glossary_versions` table, `GET/PUT /api/glossary`,
       `POST /api/items/:id/retranscribe`. T3 scheduled task "idj: maintain Whisper vocabulary"
       (`scheduled-task:11fa3070-f3d3-4d51-9503-8d9751c1abe1`, project idea-du-jour, daily 4:00 AM
