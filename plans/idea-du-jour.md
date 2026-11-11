@@ -145,7 +145,17 @@ Non-negotiables:
 - **The Shortcut's internal wiring is UNTESTED** (no iOS device here). If import misbehaves,
   the hand-build steps on `/setup` are known-good.
 
-### Installable signed shortcut via the new M1 Mac — IN PROGRESS (2026-11-10)
+### Installable signed shortcut — BUILT 2026-11-10 (`c5f2611`), signed on the Mac mini
+**As built:** `scripts/gen-shortcut.ts` -> `build/record-to-idj.unsigned.shortcut`;
+`scripts/sign-shortcut.sh` signs on `mini` over ssh pipes (scp from Git Bash + Windows
+OpenSSH hangs) -> `public/record-to-idj.shortcut` (AEA1, committed, `*.shortcut binary` in
+.gitattributes); `/shortcut` serves it as octet-stream; `/setup` step 2 links it. Signing on
+the mini started working on its own (Apple ID credential renewal 2026-11-07, per the ops
+thread; details in ops `plans/shortcut-signing-mini.md`). **Untested on the phone:** the
+action plist was written from the known format, not copied from a working shortcut (the
+phone's shortcuts haven't synced to the mini since June), so import or wiring may need fixes.
+
+Original notes:
 New information that reopens the signing dead end above: Cameron has a new **M1 Mac**. A fresh
 macOS signed into his Apple ID shouldn't have the mini's broken Shortcuts/iCloud state.
 Reuse ops `servers/camerons-mini/sign-shortcuts.sh` + `com.tacklind.shortcut-signer.plist`
@@ -420,7 +430,8 @@ repo — the established mechanism (`servers/lib/ensure-github-runner.sh` docume
 - [x] idj -> T3 dispatch built and approved (idj `b10b7ec`, ops `e65ec359`).
 - [x] Dispatch live on firefly (`b10b7ec` + ops `e65ec359`), env verified.
 - [ ] Phone test of dispatch: one quick-tap typed capture + one voice capture -> threads.
-- [ ] **Waiting on the mini thread:** signing; then the shortcut generator + `/setup` install.
+- [x] Signing works on the mini (ops thread); generator + signed install shipped (`c5f2611`).
+- [ ] **Current:** user installs from /setup and tests both paths (record, quick-stop type).
 - [x] Agent-maintained vocabulary (`916e191`): `glossary_versions` table, `GET/PUT /api/glossary`,
       `POST /api/items/:id/retranscribe`. T3 scheduled task "idj: maintain Whisper vocabulary"
       (`scheduled-task:11fa3070-f3d3-4d51-9503-8d9751c1abe1`, project idea-du-jour, daily 4:00 AM
