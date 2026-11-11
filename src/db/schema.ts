@@ -56,6 +56,11 @@ export const items = sqliteTable('items', {
   audio: text('audio', { mode: 'json' }).$type<AudioRef>(),
   /** When the audio was last transcribed (null = not yet, or no audio). */
   transcribedTs: integer('transcribed_ts'),
+  /**
+   * When the item was handed to the agent dispatcher (T3 Code), which starts a
+   * thread for it. Null = not yet (or dispatch is off).
+   */
+  dispatchedTs: integer('dispatched_ts'),
 })
 
 /** Where a voice capture's recording lives. `file` is relative to the audio dir. */

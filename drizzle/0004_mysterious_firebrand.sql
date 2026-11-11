@@ -1,0 +1,1 @@
+ALTER TABLE `items` ADD `dispatched_ts` integer;

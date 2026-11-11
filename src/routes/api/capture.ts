@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { resolveAudioMime } from '../../server/audio'
+import { enqueueDispatch } from '../../server/dispatch'
 import { enqueueEnrichment } from '../../server/enrich'
 import { env } from '../../server/env'
 import { captureAudioItem, captureItem } from '../../server/events'
@@ -111,6 +112,7 @@ export const Route = createFileRoute('/api/capture')({
         })
 
         enqueueEnrichment(id)
+        enqueueDispatch(id)
         return Response.json({ id }, { status: 201 })
       },
     },

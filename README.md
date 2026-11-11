@@ -172,6 +172,22 @@ See scripts: `bun run dev` · `typecheck` · `build` · `db:migrate` · `db:gene
 `icons:gen` (regenerate PWA icons) · `enrich:pending` (enrich items captured before a key existed) ·
 `transcribe:pending` (transcribe recordings that are still waiting).
 
+### Every capture starts a T3 Code thread (agent dispatch)
+
+When `T3_DISPATCH_URL` and `T3_DISPATCH_SECRET` are set, each new open capture is handed
+to a T3 Code webhook task ("idj: dispatch captures to threads", project idea-du-jour). Text
+captures go at once; voice captures go once transcribed. The task reads the item with its
+own agent token, picks the project (or a scratch thread when none fits), starts a thread
+with `auto-accept-edits`, and comments `T3 thread: <link>` back on the item.
+
+- The delivery is `POST {itemId, kind, voice, createdTs, url}`, signed
+  `X-Idj-Signature: sha256=<hex HMAC-SHA256 of the body>`. No capture text rides along.
+- `T3_DISPATCH_URL` is the task's own webhook (`https://t3.isozilla.com/api/hooks/<task>/<token>`),
+  served by T3 itself through its Cloudflare tunnel; T3 Connect isn't involved.
+- A failed delivery is retried every 2 minutes for a day. Older captures, and items
+  already marked done, are never sent, so switching it on can't flood T3. T3 also
+  dedupes on the item id.
+
 ### Reading the inbox with Claude (the `idj-triage` skill)
 
 `.claude/skills/idj-triage/` is a Claude Code skill for reading and working through the

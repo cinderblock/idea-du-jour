@@ -49,6 +49,17 @@ export const env = {
   transcribeGlossary:
     process.env.TRANSCRIBE_GLOSSARY ??
     'idj, Tuzfal, Uberfall, Pokol, Beelzebub, Firefly, Jackson, Iris, Sentinel, Steamboat, isozilla, Math Camp, shade pyramids, T-parts, tarps, bins',
+  /**
+   * Agent dispatch: every new capture is handed to a T3 Code webhook task,
+   * which starts a thread for it. The URL is the task's full webhook address
+   * (it carries the task's token); the secret signs each delivery
+   * (`X-Idj-Signature: sha256=<hex HMAC of the body>`). Unset = off.
+   */
+  t3DispatchUrl: process.env.T3_DISPATCH_URL,
+  t3DispatchSecret: process.env.T3_DISPATCH_SECRET,
+  /** Public origin, for the item links sent along with a dispatch. */
+  publicOrigin: process.env.PUBLIC_ORIGIN ?? process.env.RP_ORIGIN ?? 'http://localhost:3000',
+
   /** How often the retry sweep looks for untranscribed recordings. 0 = never. */
   transcribeSweepMs: Number(process.env.TRANSCRIBE_SWEEP_MS ?? 5 * 60 * 1000),
 }

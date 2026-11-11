@@ -198,6 +198,53 @@ export async function requestTranscription(opts: {
   return eventId
 }
 
+/**
+ * Record that an item was handed to the agent dispatcher (T3 Code). The
+ * dispatcher answers asynchronously; the thread it starts is linked back as a
+ * comment.
+ */
+export async function markDispatched(opts: {
+  itemId: string
+  target: string
+  deliveryId?: string | null
+}): Promise<string> {
+  await requireItem(opts.itemId)
+  const ts = Date.now()
+  const eventId = ulid()
+  await db.transaction(async (tx) => {
+    await tx.insert(events).values({
+      id: eventId,
+      ts,
+      type: 'item.dispatched',
+      itemId: opts.itemId,
+      actor: 'system:dispatch',
+      tokenId: null,
+      payload: { target: opts.target, deliveryId: opts.deliveryId ?? null },
+    })
+    await tx
+      .update(items)
+      .set({ dispatchedTs: ts })
+      .where(eq(items.id, opts.itemId))
+  })
+  return eventId
+}
+
+/**
+ * Items ready for the dispatcher and not yet sent: still open, created after
+ * `since`, and (for voice captures) transcribed, so the agent has text to read.
+ */
+export async function listUndispatched(since: number, limit = 20) {
+  const rows = await db
+    .select()
+    .from(items)
+    .where(
+      and(isNull(items.dispatchedTs), eq(items.status, 'open'), gt(items.createdTs, since)),
+    )
+    .orderBy(asc(items.createdTs))
+    .limit(limit)
+  return rows.filter((i) => !i.audio || i.transcribedTs)
+}
+
 /** Voice captures still waiting for a transcript (oldest first). */
 export async function listUntranscribed(limit = 20) {
   return db
@@ -416,8 +463,14 @@ export async function rebuildProjection(): Promise<number> {
           enrichedTs: null,
           audio: (p.audio as AudioRef | undefined) ?? null,
           transcribedTs: null,
+          dispatchedTs: null,
         })
         break
+      case 'item.dispatched': {
+        const cur = byItem.get(ev.itemId)
+        if (cur) cur.dispatchedTs = ev.ts
+        break
+      }
       case 'item.transcription_requested': {
         const cur = byItem.get(ev.itemId)
         if (cur) {

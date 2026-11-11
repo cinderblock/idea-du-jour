@@ -93,6 +93,7 @@ export function pendingItems(): Array<Item & { pending: true }> {
         enrichedTs: null,
         audio: null,
         transcribedTs: null,
+        dispatchedTs: null,
         pending: true as const,
       }
     })

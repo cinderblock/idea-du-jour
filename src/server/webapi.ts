@@ -1,6 +1,7 @@
 import { createServerFn } from '@tanstack/react-start'
 import { currentUserId, requireUserId } from './auth'
 import { listTokens, mintToken, revokeToken, type Scope } from './tokens'
+import { enqueueDispatch } from './dispatch'
 import { enqueueEnrichment } from './enrich'
 import {
   captureItem,
@@ -42,6 +43,7 @@ export const webCapture = createServerFn({ method: 'POST' })
     if (!text) throw new Error('empty capture')
     const id = await captureItem({ text, actor: 'web' })
     enqueueEnrichment(id)
+    enqueueDispatch(id)
     return { id }
   })
 

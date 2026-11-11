@@ -1,4 +1,5 @@
 import { readAudio } from './audio'
+import { enqueueDispatch } from './dispatch'
 import { enqueueEnrichment } from './enrich'
 import { env } from './env'
 import { getItem, listUntranscribed, transcribeItem } from './events'
@@ -72,8 +73,13 @@ export async function recordTranscript(opts: {
   actor?: string
 }): Promise<void> {
   const text = opts.text.trim() || NO_SPEECH
+  const first = !(await getItem(opts.itemId))?.item.transcribedTs
   await transcribeItem({ ...opts, text })
-  if (text !== NO_SPEECH) enqueueEnrichment(opts.itemId)
+  if (text === NO_SPEECH) return
+  enqueueEnrichment(opts.itemId)
+  // A voice capture goes to the dispatcher once it has text, and only the
+  // first time: a re-transcription isn't a new capture.
+  if (first) enqueueDispatch(opts.itemId)
 }
 
 /** Retry every untranscribed recording. Returns how many were transcribed. */
