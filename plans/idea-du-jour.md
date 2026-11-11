@@ -160,8 +160,14 @@ Decided 2026-11-10: transcription on `sentinel`. idj side built 2026-11-10:
   token, 415 for non-audio, transcript parsed (`todo:`, `#tags`), download byte-identical,
   206 ranges, sweep picks up a recording after Whisper comes back, `db:rebuild` replay gives
   an identical projection.
-- **Not yet:** a Whisper server on sentinel reachable from firefly, and `TRANSCRIBE_URL` in
-  the idj compose. Both are ops changes needing per-change approval.
+- **Transcription runs on sentinel by PULL (2026-11-10, ops `1a8a390a`, approved).** firefly
+  (DigitalOcean) can't reach sentinel (TSL LAN), so sentinel stack `idj-whisper` runs speaches
+  0.8.3 (faster-whisper large-v3, GPU, nothing published) + a worker (idj image,
+  `scripts/transcribe-worker.ts`) that long-polls `GET /api/transcribe/queue?wait=8`, fetches
+  audio, transcribes, `POST /api/items/:id/transcript`. Agent token `sentinel-whisper`
+  (prod token id `764caed7ee96`) in GitHub secret `SENTINEL_IDJ_AGENT_TOKEN`.
+  `TRANSCRIBE_URL` (push mode) stays unset on firefly. Re-transcribe is queued
+  (`item.transcription_requested`).
 
 **Motivating evidence (real, from our own data).** Eight captures landed 18:32:16–18:34:21,
 one continuous thought chopped into fragments by the dictation engine stopping on pauses:
@@ -371,17 +377,24 @@ repo — the established mechanism (`servers/lib/ensure-github-runner.sh` docume
       registrant wins). Build the Siri Shortcut with the minted capture token.
 - [ ] Dockerfile + compose; backups. Deploy to firefly (gated).
 - [x] Voice capture endpoint + transcriber + playback (2026-11-10).
-- [ ] **Current:** ship it — ops pin bump (needs approval), then walk the user through the
-      Shortcut on the phone.
-- [ ] Whisper on sentinel + network path from firefly + `TRANSCRIBE_URL` (ops, needs approval).
+- [x] Shipped: idj `916e191` (ops `edcdfe27`), then `c53dbb9` (ops `1a8a390a`).
+- [x] Pull worker + sentinel stack `idj-whisper` (idj `c53dbb9`, ops `1a8a390a`).
+- [ ] **Current:** sentinel deploy verified, then the user's phone test end to end.
 - [x] Agent-maintained vocabulary (`916e191`): `glossary_versions` table, `GET/PUT /api/glossary`,
       `POST /api/items/:id/retranscribe`. T3 scheduled task "idj: maintain Whisper vocabulary"
       (`scheduled-task:11fa3070-f3d3-4d51-9503-8d9751c1abe1`, project idea-du-jour, daily 4:00 AM
       local, fresh session per run) reads transcripts, PUTs new versions, re-transcribes ≤10/run.
-- [ ] Pin staged for `916e191` (digest `sha256:ad8a3b74…`), awaiting approval. **Don't run the
-      Record shortcut before this deploys:** the old server reads an audio body as text.
+- [x] Pin for `916e191` approved and pushed.
 
 ## Findings / gotchas
+- **Pushing idj `master` IS a deploy (since ops Renovate "App deploys").** Renovate follows
+  idj's `:latest` and fast-forwards ops `master` (automerge, any time), which deploys. That is
+  how the broken `be9bde7` reached prod: ops `3fa934d7`, 2026-11-07 9:31 AM PST (17:31Z),
+  and idj answered 500 to everything until 2026-11-10 3:50 PM PST (23:50Z). Captures sent in
+  that window were lost (the "Start threads for unhandled messages" thread is re-collecting
+  them). So: never push idj `master` without booting the build and making a request first.
+- **firefly can't reach sentinel**, and sentinel's services are LAN-only. Anything firefly
+  needs from sentinel is a pull from sentinel's side.
 - **SimpleWebAuthn 14 broke every request once bundled (found + fixed 2026-11-10, `cd4c7bb`).**
   The Renovate batch (`be9bde7`, merged 2026-11-06) built and typechecked fine, but the server
   answered 500 to everything, `/api/version` included: `tsyringe requires a reflect polyfill`.
