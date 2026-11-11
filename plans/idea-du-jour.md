@@ -145,7 +145,14 @@ Non-negotiables:
 - **The Shortcut's internal wiring is UNTESTED** (no iOS device here). If import misbehaves,
   the hand-build steps on `/setup` are known-good.
 
-### Device pairing: no token typed on the phone — PHASE 1 IN PROGRESS (2026-11-10)
+### Device pairing: no token typed on the phone — PHASE 1 BUILT 2026-11-10 (`e303a69`)
+Tested locally 2026-11-10: new-phone text + voice held (202, not in inbox); bad id 400; no
+auth 401; token path unchanged; 21st held capture 429; approve released both with original
+ts and actor `device:Cameron’s iPhone` (curly apostrophe survived URL-encoding), voice
+transcribed after release; approved phone goes straight in (201); reject dropped 20 held +
+audio files and then 403; revoke then 403; per-IP limit cut a 35-ID burst to 7; `db:rebuild`
+identical. **Untested on the phone:** the first-run device-ID actions (Get File / Hash /
+Set Name / Save File) were written from the known format, not copied from a working shortcut.
 Requested by Cameron 2026-11-10 (relayed by the ops mini-signing thread): "do both and start
 with the pairing". Goal: installing the shortcut never asks for a token.
 
@@ -482,7 +489,9 @@ repo — the established mechanism (`servers/lib/ensure-github-runner.sh` docume
 - [ ] Phone test of dispatch: one quick-tap typed capture + one voice capture -> threads.
 - [x] Signing works on the mini (ops thread); generator + signed install shipped (`c5f2611`).
 - [ ] User installs and tests both paths (record, quick-stop type); superseded by pairing.
-- [ ] **Current:** device pairing phase 1 (section above).
+- [x] Device pairing phase 1 built (`e303a69`).
+- [ ] **Current:** Cameron installs from Safari `/shortcut`, runs it, approves the phone on
+      `/devices`; then record + quick-stop typed captures each get a T3 thread.
 - [ ] Device pairing phase 2: design only, waiting for Cameron's go-ahead.
 - [x] Agent-maintained vocabulary (`916e191`): `glossary_versions` table, `GET/PUT /api/glossary`,
       `POST /api/items/:id/retranscribe`. T3 scheduled task "idj: maintain Whisper vocabulary"
