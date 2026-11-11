@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { AudioRef } from '../db/schema'
 import { env } from './env'
@@ -80,4 +80,46 @@ export async function readAudio(ref: AudioRef): Promise<Uint8Array<ArrayBuffer>>
     throw new Error(`refusing odd audio file name: ${ref.file}`)
   }
   return new Uint8Array(await readFile(join(env.audioDir, ref.file)))
+}
+
+/**
+ * Recordings from a device nobody has approved yet live apart, under
+ * `<audio dir>/pending/`, until the device is approved (the recording becomes
+ * an item's, via saveAudio) or rejected (deleted).
+ */
+const PENDING = 'pending'
+
+export async function savePendingAudio(
+  pendingId: string,
+  bytes: Uint8Array,
+  mime: string,
+): Promise<AudioRef> {
+  const ext = EXT_BY_MIME[mime] ?? 'bin'
+  const file = `${pendingId}.${ext}`
+  const dir = join(env.audioDir, PENDING)
+  await mkdir(dir, { recursive: true })
+  const final = join(dir, file)
+  await writeFile(`${final}.part`, bytes)
+  await rename(`${final}.part`, final)
+  return {
+    file,
+    mime,
+    bytes: bytes.byteLength,
+    sha256: createHash('sha256').update(bytes).digest('hex'),
+  }
+}
+
+function pendingPath(ref: AudioRef): string {
+  if (!/^[0-9A-Z]{26}\.[a-z0-9]+$/.test(ref.file)) {
+    throw new Error(`refusing odd audio file name: ${ref.file}`)
+  }
+  return join(env.audioDir, PENDING, ref.file)
+}
+
+export async function readPendingAudio(ref: AudioRef): Promise<Uint8Array<ArrayBuffer>> {
+  return new Uint8Array(await readFile(pendingPath(ref)))
+}
+
+export async function deletePendingAudio(ref: AudioRef): Promise<void> {
+  await rm(pendingPath(ref), { force: true })
 }

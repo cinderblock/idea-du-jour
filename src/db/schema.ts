@@ -106,6 +106,46 @@ export const glossaryVersions = sqliteTable('glossary_versions', {
 
 export type GlossaryTerm = { term: string; note?: string }
 
+/**
+ * devices — phones that capture without a token (first-run pairing). The
+ * shortcut makes a random device ID on first run and sends it with every
+ * capture; only its SHA-256 is stored, like token secrets. An unknown ID
+ * becomes a `pending` device whose captures wait in `pending_captures` until
+ * it is approved (released into the inbox) or rejected (dropped).
+ */
+export const devices = sqliteTable('devices', {
+  id: text('id').primaryKey(),
+  idHash: text('id_hash').notNull().unique(),
+  name: text('name').notNull(),
+  model: text('model'),
+  /** pending | approved | rejected | revoked */
+  status: text('status').notNull().default('pending'),
+  firstSeenTs: integer('first_seen_ts').notNull(),
+  lastSeenTs: integer('last_seen_ts').notNull(),
+  /** When status last changed by a person (approve / reject / revoke). */
+  decidedTs: integer('decided_ts'),
+  /** Where it was first seen from, to tell a stranger from your own phone. */
+  firstIp: text('first_ip'),
+})
+
+/**
+ * pending_captures — captures from a device nobody has approved yet. Not part
+ * of the event log: they become ordinary `item.created` events (with their
+ * original timestamps) only when the device is approved.
+ */
+export const pendingCaptures = sqliteTable('pending_captures', {
+  id: text('id').primaryKey(),
+  deviceId: text('device_id').notNull(),
+  ts: integer('ts').notNull(),
+  /** Typed capture text; null for a recording. */
+  text: text('text'),
+  /** A recording, stored under <audio dir>/pending/. */
+  audio: text('audio', { mode: 'json' }).$type<AudioRef>(),
+})
+
+export type Device = typeof devices.$inferSelect
+export type PendingCapture = typeof pendingCaptures.$inferSelect
+
 /** users — single-user for now, but modeled as a table for WebAuthn (later). */
 export const users = sqliteTable('users', {
   id: text('id').primaryKey(),

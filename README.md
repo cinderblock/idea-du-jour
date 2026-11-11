@@ -61,8 +61,16 @@ pause and mishears names; a recording keeps everything, and the server transcrib
 with Whisper, biased toward your own vocabulary. The recording is kept, so a bad
 transcript can always be redone.
 
-**Install it, don't build it.** `/setup` → step 2 → **Install "Record to idj"** downloads a
-signed shortcut; paste your capture token's *Header value* when iOS asks. It:
+**Install it, don't build it.** `/setup` → step 2 → **Install "Record to idj"** (in Safari)
+downloads a signed shortcut. There's no token to paste: the phone **pairs**. On first run the
+shortcut makes a random device ID, keeps it in iCloud Drive (`Shortcuts/idj/device-id.txt`),
+and sends it with every capture. A new phone's captures are held, the inbox shows a
+"captures waiting" banner, and `/devices` lists the phone with Approve / Reject. Approve
+releases what it captured into the inbox (with the original times); after that its
+captures go straight in. Revoke stops a phone. A stranger with the public file can only
+fill the waiting list (capped: 20 captures and 25 MB per device, 20 waiting devices,
+30 requests/min per IP), never the inbox. Token auth (`Authorization: Bearer`) still
+works for everything else. The shortcut:
 records (Normal, starts at once, stops on tap); if you stop within 2 seconds, asks you to
 type instead; saves the recording to iCloud Drive (`Shortcuts/idj/`) and uploads it;
 then shows "Saved to idj" or the server's error. Bind it to the **Action button** (not
@@ -157,7 +165,7 @@ Sync, so syncing happens when the app is next open + online (nothing is lost). N
 
 | Method + path | Scope | Purpose |
 |---|---|---|
-| `POST /api/capture` | capture | Append an item (raw text, JSON, or an audio recording). |
+| `POST /api/capture` | capture, or a paired device (`X-Idj-Device-Id`) | Append an item (raw text, JSON, or an audio recording); an unapproved device's capture is held (202). |
 | `GET /api/items?status=&kind=&limit=` | agent | List/query items. |
 | `GET /api/items/:id` | agent | One item + its full event history. |
 | `GET /api/items/:id/audio` | agent | A voice capture's original recording (also the web session). |

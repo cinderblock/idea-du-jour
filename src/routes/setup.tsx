@@ -101,18 +101,23 @@ function Setup() {
 
         <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-gray-600 dark:text-gray-400">
           <li>
-            Mint a <strong>capture</strong> token in step 3 below and tap{' '}
-            <strong>Header value</strong> to copy it.
-          </li>
-          <li>
-            On your iPhone, tap{' '}
+            On your iPhone, in Safari, tap{' '}
             <a
               href="/shortcut"
               className="font-medium text-blue-600 underline dark:text-blue-400"
             >
               Install “Record to idj”
             </a>{' '}
-            → <strong>Add Shortcut</strong>, and paste the header value when it asks.
+            → <strong>Add Shortcut</strong>. No token to paste.
+          </li>
+          <li>
+            Run it once. The first capture pairs the phone: it&rsquo;s held, and the phone
+            shows up on{' '}
+            <Link to="/devices" className="font-medium text-blue-600 underline dark:text-blue-400">
+              Devices
+            </Link>
+            . Approve it there and the capture lands in your inbox; after that, captures go
+            straight in.
           </li>
           <li>
             <strong>Settings → Action Button → Shortcut → Record to idj</strong>. (Not “Hey
@@ -120,7 +125,8 @@ function Setup() {
           </li>
         </ol>
         <p className="mt-2 text-xs text-gray-500">
-          Re-install the same way to pick up updates or a new token. If it ever says “The
+          Re-install the same way to pick up updates; the phone stays paired (its device ID
+          lives in iCloud Drive, Shortcuts/idj/device-id.txt). If it ever says “The
           network connection was lost”, look for an empty header row in its Get Contents of
           URL action.
         </p>

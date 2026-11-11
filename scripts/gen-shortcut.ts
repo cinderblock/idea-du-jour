@@ -5,17 +5,22 @@
  *   bun run shortcut:sign         -> public/record-to-idj.shortcut (signed, on the mini)
  *
  * What it does on the phone:
- *   1. Records audio (Normal quality, starts at once, stops on tap).
- *   2. If you stopped within 2 seconds, asks for typed text instead and POSTs
- *      {text} as JSON; otherwise saves the recording to iCloud Drive
+ *   1. Finds this phone's device ID in iCloud Drive (Shortcuts/idj/device-id.txt),
+ *      or on first run makes one (SHA-256 of four random numbers and the time)
+ *      and saves it there.
+ *   2. Records audio (Normal quality, starts at once, stops on tap). If you
+ *      stopped within 2 seconds it asks for typed text instead and POSTs
+ *      {text} as JSON; otherwise it saves the recording to iCloud Drive
  *      (Shortcuts/idj/) and POSTs the file.
- *   3. Shows "Saved to idj" if the server answered with an item id, or the
- *      server's answer (the error) if not.
+ *   3. Shows the server's `message` as a notification ("Saved to idj", or
+ *      "approve this phone at …/devices" while the phone is new, or an error),
+ *      or the whole answer if there's no message.
  *
- * The capture token is NOT in the file. Action 0 is a Text action, and an
- * import question makes iOS ask for its value at install time ("paste the
- * Header value from idj.isozilla.com/setup"), so the signed file is safe to
- * serve publicly and rotating the token means re-installing.
+ * No token and no install questions: the phone pairs instead. Every capture
+ * sends X-Idj-Device-Id, X-Idj-Device-Name (URL-encoded: a non-ASCII header can
+ * make iOS drop the request) and X-Idj-Device-Model. The server holds a new
+ * phone's captures until it's approved on /devices. The file holds no secret,
+ * so it's served publicly.
  *
  * Signing needs a Mac signed into iCloud (iOS imports only Apple-signed
  * files); scripts/sign-shortcut.sh uses the Mac mini (ssh alias `mini`).
@@ -69,16 +74,26 @@ const ref = (o: Output) => ({ OutputUUID: o.uuid, Type: 'ActionOutput', OutputNa
 /** Plain text, no variables. */
 const text = (s: string): P => ({ Value: { string: s }, WFSerializationType: 'WFTextTokenString' })
 
-/** Text containing one variable at the OBJ placeholder. */
-function textWith(str: string, o: Output): P {
-  return {
-    Value: { string: str, attachmentsByRange: { [`{${str.indexOf(OBJ)}, 1}`]: ref(o) } },
-    WFSerializationType: 'WFTextTokenString',
+/** Text mixing literal strings and action outputs. */
+function textOf(parts: Array<string | Output>): P {
+  let str = ''
+  const attachmentsByRange: { [k: string]: P } = {}
+  for (const part of parts) {
+    if (typeof part === 'string') {
+      str += part
+    } else {
+      attachmentsByRange[`{${str.length}, 1}`] = ref(part)
+      str += OBJ
+    }
   }
+  return { Value: { string: str, attachmentsByRange }, WFSerializationType: 'WFTextTokenString' }
 }
 
 /** A whole variable as an action input. */
 const attach = (o: Output): P => ({ Value: ref(o), WFSerializationType: 'WFTextTokenAttachment' })
+
+/** An If's input: a variable. */
+const ifInput = (o: Output): P => ({ Type: 'Variable', Variable: attach(o) })
 
 /** A dictionary field (headers, JSON body): text keys, text values. */
 function dict(entries: Array<{ key: string; value: P }>): P {
@@ -101,15 +116,29 @@ const action = (id: string, params: { [k: string]: P }): P => ({
 
 // Stable ids: magic-variable references point at these.
 const id = (n: number) => `1D1D1D1D-0000-4000-8000-${String(n).padStart(12, '0')}`
-const TOKEN: Output = { uuid: id(1), name: 'Text' }
-const START: Output = { uuid: id(2), name: 'Date' }
-const AUDIO: Output = { uuid: id(3), name: 'Recorded Audio' }
-const ELAPSED: Output = { uuid: id(4), name: 'Time Between Dates' }
-const TYPED: Output = { uuid: id(5), name: 'Provided Input' }
-const IF_RESULT: Output = { uuid: id(6), name: 'If Result' }
-const ITEM_ID: Output = { uuid: id(7), name: 'Dictionary Value' }
-const BRANCH = id(100)
-const CHECK = id(101)
+const out = (n: number, name: string): Output => ({ uuid: id(n), name })
+
+const SAVED_ID = out(1, 'File')
+const ID_FROM_FILE = out(2, 'Text')
+const RAND = [1, 2, 3, 4].map((k) => out(2 + k, 'Random Number'))
+const NOW = out(7, 'Date')
+const SEED = out(8, 'Text')
+const NEW_ID = out(9, 'Hash')
+const NEW_ID_FILE = out(10, 'Renamed Item')
+const NEW_ID_TEXT = out(11, 'Text')
+const DEVICE_ID = out(12, 'If Result')
+const DEVICE_NAME = out(13, 'Device Name')
+const DEVICE_MODEL = out(14, 'Device Model')
+const NAME_ENCODED = out(15, 'URL Encoded Text')
+const START = out(20, 'Date')
+const AUDIO = out(21, 'Recorded Audio')
+const ELAPSED = out(22, 'Time Between Dates')
+const TYPED = out(23, 'Provided Input')
+const RESPONSE = out(24, 'If Result')
+const MESSAGE = out(25, 'Dictionary Value')
+const HAVE_ID = id(100)
+const BRANCH = id(101)
+const CHECK = id(102)
 
 // Shortcuts' WFCondition codes.
 const IS_BETWEEN = 1003
@@ -120,49 +149,97 @@ const capture = (body: { [k: string]: P }): P =>
     WFURL: text(`${BASE_URL}/api/capture`),
     WFHTTPMethod: 'POST',
     ShowHeaders: true,
-    // The import answer is the whole header value ("Bearer idj_capture_..."),
-    // exactly what /setup's "Header value" button copies.
-    WFHTTPHeaders: dict([{ key: 'Authorization', value: textWith(OBJ, TOKEN) }]),
+    WFHTTPHeaders: dict([
+      { key: 'X-Idj-Device-Id', value: textOf([DEVICE_ID]) },
+      { key: 'X-Idj-Device-Name', value: textOf([NAME_ENCODED]) },
+      { key: 'X-Idj-Device-Model', value: textOf([DEVICE_MODEL]) },
+    ]),
     ...body,
   })
 
 const actions: P[] = [
-  // 0: the Authorization header value. The import question fills this in.
-  action('gettext', {
-    UUID: TOKEN.uuid,
-    WFTextActionText: text('Bearer PASTE_YOUR_CAPTURE_TOKEN'),
+  // --- this phone's device ID: read it, or make one and save it ------------
+  action('documentpicker.open', {
+    UUID: SAVED_ID.uuid,
+    WFGetFilePath: text('idj/device-id.txt'),
+    WFFileErrorIfNotFound: false,
+    WFShowFilePicker: false,
   }),
-  // 1: when recording started
+  action('conditional', {
+    GroupingIdentifier: HAVE_ID,
+    WFControlFlowMode: 0,
+    WFInput: ifInput(SAVED_ID),
+    WFCondition: HAS_ANY_VALUE,
+  }),
+  action('gettext', { UUID: ID_FROM_FILE.uuid, WFTextActionText: textOf([SAVED_ID]) }),
+  action('conditional', { GroupingIdentifier: HAVE_ID, WFControlFlowMode: 1 }),
+  ...RAND.map((r) =>
+    action('number.random', {
+      UUID: r.uuid,
+      WFRandomNumberMinimum: 0,
+      WFRandomNumberMaximum: 999999999,
+    }),
+  ),
+  action('date', { UUID: NOW.uuid, WFDateActionMode: 'Current Date' }),
+  action('gettext', {
+    UUID: SEED.uuid,
+    WFTextActionText: textOf([RAND[0], '-', RAND[1], '-', RAND[2], '-', RAND[3], '-', NOW]),
+  }),
+  action('hash', { UUID: NEW_ID.uuid, WFInput: attach(SEED), WFHashType: 'SHA256' }),
+  action('setitemname', {
+    UUID: NEW_ID_FILE.uuid,
+    WFInput: attach(NEW_ID),
+    WFName: text('device-id.txt'),
+  }),
+  action('documentpicker.save', {
+    WFInput: attach(NEW_ID_FILE),
+    WFAskWhereToSave: false,
+    WFFileDestinationPath: 'idj/',
+    WFSaveFileOverwrite: true,
+  }),
+  action('gettext', { UUID: NEW_ID_TEXT.uuid, WFTextActionText: textOf([NEW_ID]) }),
+  action('conditional', { GroupingIdentifier: HAVE_ID, WFControlFlowMode: 2, UUID: DEVICE_ID.uuid }),
+
+  // --- who's capturing ------------------------------------------------------
+  action('getdevicedetails', { UUID: DEVICE_NAME.uuid, WFDeviceDetail: 'Device Name' }),
+  action('getdevicedetails', { UUID: DEVICE_MODEL.uuid, WFDeviceDetail: 'Device Model' }),
+  action('urlencode', {
+    UUID: NAME_ENCODED.uuid,
+    WFInput: attach(DEVICE_NAME),
+    WFEncodeMode: 'Encode',
+  }),
+
+  // --- capture --------------------------------------------------------------
   action('date', { UUID: START.uuid, WFDateActionMode: 'Current Date' }),
-  // 2: record
   action('recordaudio', {
     UUID: AUDIO.uuid,
     WFRecordingCompression: 'Normal',
     WFRecordingStart: 'Immediately',
     WFRecordingEnd: 'On Tap',
   }),
-  // 3: how long the recorder was open. Sign depends on Shortcuts' argument
-  // order, so the check below is "between -N and N", which holds either way.
+  // How long the recorder was open. Its sign depends on Shortcuts' argument
+  // order, so the check is "between -N and N", which holds either way.
   action('gettimebetweendates', {
     UUID: ELAPSED.uuid,
     WFInput: attach(START),
     WFTimeUntilUnit: 'Seconds',
   }),
-  // 4: stopped almost at once -> type instead
   action('conditional', {
     GroupingIdentifier: BRANCH,
     WFControlFlowMode: 0,
-    WFInput: { Type: 'Variable', Variable: attach(ELAPSED) },
+    WFInput: ifInput(ELAPSED),
     WFCondition: IS_BETWEEN,
     WFNumberValue: -TYPE_INSTEAD_SECONDS,
     WFAnotherNumber: TYPE_INSTEAD_SECONDS,
   }),
-  // 5-6: typed capture as JSON {text}
+  // stopped almost at once: type instead, sent as JSON {text}
   action('ask', { UUID: TYPED.uuid, WFAskActionPrompt: 'Note for idj', WFInputType: 'Text' }),
-  capture({ WFHTTPBodyType: 'JSON', WFJSONValues: dict([{ key: 'text', value: textWith(OBJ, TYPED) }]) }),
-  // 7: otherwise
+  capture({
+    WFHTTPBodyType: 'JSON',
+    WFJSONValues: dict([{ key: 'text', value: textOf([TYPED]) }]),
+  }),
   action('conditional', { GroupingIdentifier: BRANCH, WFControlFlowMode: 1 }),
-  // 8-9: keep a copy first (a dead network can't lose it), then upload the file
+  // keep a copy first (a dead network can't lose it), then upload the file
   action('documentpicker.save', {
     WFInput: attach(AUDIO),
     WFAskWhereToSave: false,
@@ -170,25 +247,29 @@ const actions: P[] = [
     WFSaveFileOverwrite: false,
   }),
   capture({ WFHTTPBodyType: 'File', WFRequestVariable: attach(AUDIO) }),
-  // 10: end if -> "If Result" is whichever upload ran
-  action('conditional', { GroupingIdentifier: BRANCH, WFControlFlowMode: 2, UUID: IF_RESULT.uuid }),
-  // 11: the new item's id, if the server made one
+  action('conditional', { GroupingIdentifier: BRANCH, WFControlFlowMode: 2, UUID: RESPONSE.uuid }),
+
+  // --- tell the person what happened ----------------------------------------
+  // Every idj answer carries `message`; anything else (a proxy's error page)
+  // is shown whole.
   action('getvalueforkey', {
-    UUID: ITEM_ID.uuid,
-    WFInput: attach(IF_RESULT),
+    UUID: MESSAGE.uuid,
+    WFInput: attach(RESPONSE),
     WFGetDictionaryValueType: 'Value',
-    WFDictionaryKey: text('id'),
+    WFDictionaryKey: text('message'),
   }),
-  // 12-16: confirm quietly, or show what went wrong
   action('conditional', {
     GroupingIdentifier: CHECK,
     WFControlFlowMode: 0,
-    WFInput: { Type: 'Variable', Variable: attach(ITEM_ID) },
+    WFInput: ifInput(MESSAGE),
     WFCondition: HAS_ANY_VALUE,
   }),
-  action('notification', { WFNotificationActionBody: text('🎙 Saved to idj'), WFNotificationActionSound: false }),
+  action('notification', {
+    WFNotificationActionBody: textOf([MESSAGE]),
+    WFNotificationActionSound: false,
+  }),
   action('conditional', { GroupingIdentifier: CHECK, WFControlFlowMode: 1 }),
-  action('showresult', { Text: textWith(OBJ, IF_RESULT) }),
+  action('showresult', { Text: textOf([RESPONSE]) }),
   action('conditional', { GroupingIdentifier: CHECK, WFControlFlowMode: 2 }),
 ]
 
@@ -202,15 +283,7 @@ const shortcut: P = {
     WFWorkflowIconStartColor: 4292093695, // amber, matches the app icon
     WFWorkflowIconGlyphNumber: 59511, // microphone
   },
-  WFWorkflowImportQuestions: [
-    {
-      ParameterKey: 'WFTextActionText',
-      Category: 'Parameter',
-      ActionIndex: 0,
-      Text: 'Paste the Header value from idj.isozilla.com/setup (it starts with "Bearer ")',
-      DefaultValue: '',
-    },
-  ],
+  WFWorkflowImportQuestions: [],
   WFWorkflowInputContentItemClasses: [],
   WFWorkflowOutputContentItemClasses: [],
   WFQuickActionSurfaces: [],

@@ -63,6 +63,7 @@ if [ "$(head -c 4 "$body")" != "AEA1" ]; then
 	echo "FAIL signed shortcut download: not an Apple-signed file"
 	exit 1
 fi
+check 'new device capture is held' 202 -X POST -H 'X-Idj-Device-Id: smoke0123456789abcdef0123456789abcdef' 	-H 'X-Idj-Device-Name: Smoke%20Phone' -H 'Content-Type: text/plain' --data 'held' "${base}/api/capture"
 check 'capture without token' 401 -X POST --data x "${base}/api/capture"
 
 token="$(docker exec "$name" bun run scripts/mint-token.ts capture smoke | grep -oE 'idj_capture_[A-Za-z0-9_-]+')"

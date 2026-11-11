@@ -1,6 +1,7 @@
 import { createServerFn } from '@tanstack/react-start'
 import { currentUserId, requireUserId } from './auth'
 import { listTokens, mintToken, revokeToken, type Scope } from './tokens'
+import { approveDevice, listDevices, rejectDevice, revokeDevice, waitingSummary } from './devices'
 import { enqueueDispatch } from './dispatch'
 import { enqueueEnrichment } from './enrich'
 import {
@@ -25,7 +26,10 @@ export const fetchItems = createServerFn({ method: 'GET' })
   .handler(async ({ data }) => {
     requireUserId()
     const items = await listItems({ status: data.status, kind: data.kind })
-    return { items }
+    // Captures held for a device nobody has approved: shown as a banner so
+    // they can't sit unnoticed.
+    const waiting = await waitingSummary()
+    return { items, waiting }
   })
 
 export const fetchItem = createServerFn({ method: 'GET' })
@@ -105,4 +109,24 @@ export const revokeTokenFn = createServerFn({ method: 'POST' })
     requireUserId()
     await revokeToken(data.id)
     return { ok: true }
+  })
+
+/** Paired devices (phones that capture without a token), with waiting counts. */
+export const fetchDevices = createServerFn({ method: 'GET' }).handler(async () => {
+  requireUserId()
+  return { devices: await listDevices() }
+})
+
+/** Approve (releases held captures), reject (drops them) or revoke a device. */
+export const decideDevice = createServerFn({ method: 'POST' })
+  .validator((data: { id: string; action: 'approve' | 'reject' | 'revoke' }) => data)
+  .handler(async ({ data }) => {
+    requireUserId()
+    if (data.action === 'approve') return { ...(await approveDevice(data.id)), dropped: 0 }
+    if (data.action === 'reject') return { ...(await rejectDevice(data.id)), released: 0 }
+    if (data.action === 'revoke') {
+      await revokeDevice(data.id)
+      return { released: 0, dropped: 0 }
+    }
+    throw new Error('unknown action')
   })

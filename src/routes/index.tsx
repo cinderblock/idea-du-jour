@@ -45,17 +45,17 @@ export const Route = createFileRoute('/')({
         data: { status: deps.filter === 'all' ? undefined : deps.filter },
       })
       cacheInbox(res.items)
-      return { items: res.items, offline: false }
+      return { items: res.items, waiting: res.waiting, offline: false }
     } catch {
       // Offline — serve the last cached inbox.
-      return { items: cachedInbox(), offline: true }
+      return { items: cachedInbox(), waiting: null, offline: true }
     }
   },
   component: Inbox,
 })
 
 function Inbox() {
-  const { items, offline } = Route.useLoaderData()
+  const { items, waiting, offline } = Route.useLoaderData()
   const filter: Filter = Route.useSearch().filter ?? 'open'
   const navigate = useNavigate({ from: Route.fullPath })
   const router = useRouter()
@@ -107,6 +107,12 @@ function Inbox() {
         </div>
         <div className="mt-1 flex gap-3">
           <Link
+            to="/devices"
+            className="text-xs text-gray-400 transition hover:text-gray-700 dark:hover:text-gray-200"
+          >
+            Devices
+          </Link>
+          <Link
             to="/setup"
             className="text-xs text-gray-400 transition hover:text-gray-700 dark:hover:text-gray-200"
           >
@@ -125,6 +131,19 @@ function Inbox() {
           </button>
         </div>
       </header>
+
+      {waiting && waiting.devicesWaiting > 0 && (
+        <Link
+          to="/devices"
+          className="mb-4 block rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200"
+        >
+          <strong>
+            {waiting.captures} capture{waiting.captures === 1 ? '' : 's'} waiting
+          </strong>{' '}
+          from {waiting.devicesWaiting === 1 ? 'a new device' : `${waiting.devicesWaiting} new devices`}.
+          Review →
+        </Link>
+      )}
 
       {(showOffline || pending.length > 0) && (
         <div className="mb-3 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
