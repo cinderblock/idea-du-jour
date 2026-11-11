@@ -382,7 +382,11 @@ repo — the established mechanism (`servers/lib/ensure-github-runner.sh` docume
 - [x] sentinel deploy verified; GPU transcription checked with real speech (glossary fixes
       "tusful" -> "Tuzfal").
 - [x] Caddy 10 MB body cap on idj removed at user's request (ops `1b3c5c65`).
-- [ ] **Current:** user's phone voice test end to end (shortcut had an empty header row).
+- [x] **Voice capture verified end to end 2026-11-10 4:52 PM PST (00:52Z):** Action button ->
+      idj (96 KB m4a) -> sentinel worker -> "This is a test. Does it work?" in 3.0 s.
+      Shortcut: Record Audio -> Save File -> Get Contents of URL (File body) -> Get Dictionary
+      Value `id` -> If has any value: notification, Otherwise: Show Result.
+- [ ] **Next (user's call):** idj -> T3 dispatch (designed in "Agent dispatch" above).
 - [x] Agent-maintained vocabulary (`916e191`): `glossary_versions` table, `GET/PUT /api/glossary`,
       `POST /api/items/:id/retranscribe`. T3 scheduled task "idj: maintain Whisper vocabulary"
       (`scheduled-task:11fa3070-f3d3-4d51-9503-8d9751c1abe1`, project idea-du-jour, daily 4:00 AM
