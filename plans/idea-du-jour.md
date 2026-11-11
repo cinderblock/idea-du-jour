@@ -493,7 +493,8 @@ repo — the established mechanism (`servers/lib/ensure-github-runner.sh` docume
    because transcription is async and retryable, so a dead GPU means untranscribed, not lost.
    (b) OpenAI API — low effort, negligible cost at ~2 min/day, but a new vendor and the audio
    leaves the building. *No recommendation yet — this is a values call, not a technical one.*
-2. **Device tests needed before any server work** (5 minutes, needs the phone): does
+2. ~~**Device tests needed before any server work**~~ Answered 2026-11-10: Record Audio from
+   the Action button + File body upload work (after removing an empty header row). (5 minutes, needs the phone): does
    `Get Contents of URL` cleanly post a `Record Audio` output as multipart, and how does
    `Record Audio` actually behave from *your* Action button on *your* iOS version?
 
