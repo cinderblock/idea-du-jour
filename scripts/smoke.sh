@@ -58,6 +58,11 @@ fi
 check 'inbox page redirects to login' 307 "${base}/"
 check 'passkey options' 200 -X POST -H 'content-type: application/json' \
 	-d '{"displayName":"smoke"}' "${base}/api/auth/register/options"
+check 'signed shortcut download' 200 "${base}/shortcut"
+if [ "$(head -c 4 "$body")" != "AEA1" ]; then
+	echo "FAIL signed shortcut download: not an Apple-signed file"
+	exit 1
+fi
 check 'capture without token' 401 -X POST --data x "${base}/api/capture"
 
 token="$(docker exec "$name" bun run scripts/mint-token.ts capture smoke | grep -oE 'idj_capture_[A-Za-z0-9_-]+')"

@@ -1,0 +1,2 @@
+# Apple-signed binary: any byte change breaks the signature.
+*.shortcut binary

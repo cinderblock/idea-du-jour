@@ -17,6 +17,8 @@
     "enrich:pending": "bun run scripts/enrich-pending.ts",
     "transcribe:pending": "bun run scripts/transcribe-pending.ts",
     "transcribe:worker": "bun run scripts/transcribe-worker.ts",
+    "shortcut:build": "bun run scripts/gen-shortcut.ts",
+    "shortcut:sign": "bash scripts/sign-shortcut.sh",
     "skill:install": "bun run scripts/install-skill.ts"
   },
   "dependencies": {

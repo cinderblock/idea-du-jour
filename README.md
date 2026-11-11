@@ -56,18 +56,23 @@ selected text or a link to idj from any app.
 
 ### Voice capture — "Record to idj"
 
-For anything longer than a sentence, record audio instead of dictating. Dictation stops
-on a pause and mishears names; a recording keeps everything, and the server transcribes
-it with Whisper, biased toward your own vocabulary (server names, your tags). The
-recording is kept, so a bad transcript can always be redone.
+For anything longer than a sentence, record instead of dictating. Dictation stops on a
+pause and mishears names; a recording keeps everything, and the server transcribes it
+with Whisper, biased toward your own vocabulary. The recording is kept, so a bad
+transcript can always be redone.
 
-1. **Record Audio** — Audio Quality *Normal*, Start Recording *Immediately*, Finish
-   Recording *On Tap* (it never stops on a pause).
-2. **Save File** — save the *Recorded Audio* to iCloud Drive (e.g. `Shortcuts/idj`), *Ask
-   Where to Save* off. A dead network can then never lose a recording.
-3. **Get Contents of URL** — `https://idj.isozilla.com/api/capture`, `POST`, header
-   `Authorization` = `Bearer <capture token>`, **Request Body: File** → *Recorded Audio*.
-4. *(optional)* **Show Notification** to confirm it landed.
+**Install it, don't build it.** `/setup` → step 2 → **Install "Record to idj"** downloads a
+signed shortcut; paste your capture token's *Header value* when iOS asks. It:
+records (Normal, starts at once, stops on tap); if you stop within 2 seconds, asks you to
+type instead; saves the recording to iCloud Drive (`Shortcuts/idj/`) and uploads it;
+then shows "Saved to idj" or the server's error. Bind it to the **Action button** (not
+"Hey Siri": *Record Audio* freezes when a shortcut is started by voice).
+
+The shortcut is generated from code, `scripts/gen-shortcut.ts`, so changing it means
+editing that file, then `bun run shortcut:build && bun run shortcut:sign` (signs on the
+Mac mini, ssh alias `mini`, and writes `public/record-to-idj.shortcut`) and committing
+the signed file. iOS imports only Apple-signed shortcuts. The file holds no secret: the
+token is an import question.
 
 **If it fails with "The network connection was lost":** look for an empty row in *Get
 Contents of URL → Headers*. A header with a blank key or value makes iOS drop the request

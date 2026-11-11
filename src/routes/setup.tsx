@@ -72,9 +72,6 @@ function Setup() {
     }
   }
 
-  const base =
-    typeof window !== 'undefined' ? window.location.origin : 'https://idj.isozilla.com'
-
   return (
     <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
       <Link to="/" className="text-sm text-gray-500 hover:text-gray-800 dark:hover:text-gray-200">
@@ -95,46 +92,38 @@ function Setup() {
 
       {/* 2. shortcut */}
       <section className="mt-6">
-        <h2 className="text-sm font-semibold">2. Voice memos (Action button)</h2>
+        <h2 className="text-sm font-semibold">2. Record to idj (Action button)</h2>
         <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-          Build it once here, then <strong>⋯ → Share → Copy iCloud Link</strong> — that link
-          re-installs it on any of your devices later. (iOS only imports Apple-signed
-          shortcut files, so there is no one-tap download.)
+          One shortcut for everything: it records, and if you tap stop within two seconds
+          it asks you to type instead. Recordings are saved to iCloud Drive (Shortcuts/idj)
+          before uploading, and transcribed on the server.
         </p>
 
         <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-gray-600 dark:text-gray-400">
           <li>
-            Shortcuts → <strong>+</strong> → add <strong>Dictate Text</strong>
+            Mint a <strong>capture</strong> token in step 3 below and tap{' '}
+            <strong>Header value</strong> to copy it.
           </li>
           <li>
-            Add <strong>Get Contents of URL</strong>, tap ▸ to expand, then set:
-            <div className="mt-2 space-y-2">
-              <Copyable value={`${base}/api/capture`} label="URL" />
-              <p>
-                Method: <strong>POST</strong>
-              </p>
-              <p>
-                <strong>Headers</strong> → add one row. Mint a token below and copy the
-                two fields it gives you (the value already includes{' '}
-                <code className="text-xs">Bearer </code> — paste it whole):
-              </p>
-              <Copyable value="Authorization" label="Header — Key" />
-              <p className="text-xs">
-                …and the <strong>Value</strong> is the “Header value” button shown after
-                you mint a token.
-              </p>
-              <p>
-                <strong>Request Body</strong>: <strong>JSON</strong> → one{' '}
-                <em>Text</em> field, key <code className="text-xs">text</code>, value = the{' '}
-                <strong>Dictated Text</strong> variable from step 1
-              </p>
-            </div>
+            On your iPhone, tap{' '}
+            <a
+              href="/shortcut"
+              className="font-medium text-blue-600 underline dark:text-blue-400"
+            >
+              Install “Record to idj”
+            </a>{' '}
+            → <strong>Add Shortcut</strong>, and paste the header value when it asks.
           </li>
           <li>
-            Name it <strong>Memo to idj</strong>, then{' '}
-            <strong>Settings → Action Button → Shortcut</strong>
+            <strong>Settings → Action Button → Shortcut → Record to idj</strong>. (Not “Hey
+            Siri”: recording freezes when a shortcut is started by voice.)
           </li>
         </ol>
+        <p className="mt-2 text-xs text-gray-500">
+          Re-install the same way to pick up updates or a new token. If it ever says “The
+          network connection was lost”, look for an empty header row in its Get Contents of
+          URL action.
+        </p>
       </section>
 
       {/* 3. tokens */}
