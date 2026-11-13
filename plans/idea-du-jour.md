@@ -159,7 +159,7 @@ with the pairing". Goal: installing the shortcut never asks for a token.
 **Phase 1: first-run pairing (building now)**
 - The public signed `/shortcut` has no import question and no token.
 - First run: the shortcut makes a long random device ID (SHA-256 of four random numbers plus
-  the time: 64 hex chars), saves it to iCloud Drive `Shortcuts/idj/device-id.txt`, and reads
+  the time: 64 hex chars), saves it to iCloud Drive `Shortcuts/idj-device-id.txt` (was `idj/device-id.txt`; see findings), and reads
   it on later runs. Every capture sends headers `X-Idj-Device-Id`, `X-Idj-Device-Name`
   (URL-encoded, since names like "Cameron’s iPhone" aren't ASCII and a non-ASCII header can
   make iOS drop the request), and `X-Idj-Device-Model`.
@@ -489,9 +489,14 @@ repo — the established mechanism (`servers/lib/ensure-github-runner.sh` docume
 - [ ] Phone test of dispatch: one quick-tap typed capture + one voice capture -> threads.
 - [x] Signing works on the mini (ops thread); generator + signed install shipped (`c5f2611`).
 - [ ] User installs and tests both paths (record, quick-stop type); superseded by pairing.
-- [x] Device pairing phase 1 built (`e303a69`).
-- [ ] **Current:** Cameron installs from Safari `/shortcut`, runs it, approves the phone on
-      `/devices`; then record + quick-stop typed captures each get a T3 thread.
+- [x] Device pairing phase 1 built (`e303a69`), deployed by Renovate 2026-11-11 11:06 AM PST
+      (19:06Z).
+- [x] First phone test 2026-11-12 3:09–3:12 PM PST: install worked; three bugs (new device ID
+      every run, quick-stop never asked to type, permission prompts on every run). See findings.
+- [x] Fix: flat iCloud paths (`idj-device-id`, `idj-recording`), server decides "type instead"
+      from the M4A's length (`typeInstead: true` under 2 s), empty device name falls back to
+      the model.
+- [ ] **Current:** Cameron reinstalls and retests; report which permission prompts still repeat.
 - [ ] Device pairing phase 2: design only, waiting for Cameron's go-ahead.
 - [x] Agent-maintained vocabulary (`916e191`): `glossary_versions` table, `GET/PUT /api/glossary`,
       `POST /api/items/:id/retranscribe`. T3 scheduled task "idj: maintain Whisper vocabulary"
@@ -500,6 +505,22 @@ repo — the established mechanism (`servers/lib/ensure-github-runner.sh` docume
 - [x] Pin for `916e191` approved and pushed.
 
 ## Findings / gotchas
+- **Shortcuts' Save File (`documentpicker.save`, no picker) treats its path as a file name
+  and adds the extension.** Path `idj/` saved `Shortcuts/idj.txt` (the device ID) and
+  `Shortcuts/idj.m4a`, `idj-2.m4a`, … (recordings); no `idj` folder was made. So the shortcut
+  never found `idj/device-id.txt` and made a new device ID on every run: prod got 5 pending
+  devices from one phone, 2026-11-12 3:09–3:12 PM PST. Seen on the Mac mini, whose iCloud
+  Drive syncs the same Shortcuts folder (`~/Library/Mobile Documents/iCloud~is~workflow~my~workflows/Documents`),
+  a handy read-only way to see what the phone saved. Fix: flat names, no extension on save
+  paths; read `idj-device-id.txt`.
+- **The phone-side "stopped within 2 s" check never fired.** Get Time Between Dates + If "is
+  between -2 and 2" went to the recording branch for 0.77 s and 0.84 s clips (measured from
+  the M4A `mvhd`). Rather than guess at Shortcuts' date/number semantics, the server now
+  measures the recording and answers `{typeInstead: true}`; the shortcut only uses
+  "has any value", which is known to work.
+- **Device name header arrived empty** (stored as "Unnamed device"); the model ("iPhone")
+  came through. Cause not known (Get Device Details "Device Name" or the URL Encode step).
+  The server now falls back to the model.
 - **iOS "The network connection was lost" from Get Contents of URL = an empty header row**
   (found 2026-11-10). The request never leaves the phone: idj, Cloudflare and even a
   non-Cloudflare URL on firefly all "fail" identically, and no server logs anything. Ruled out
