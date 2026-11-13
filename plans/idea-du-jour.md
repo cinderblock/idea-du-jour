@@ -313,7 +313,7 @@ run; filters `body.event == idj.capture`, dedupe `{{body.itemId}}`, signature he
 `x-idj-signature`). URL = `https://t3.isozilla.com/api/hooks/<task>/<token>` (token is not
 shown by the T3 tool; read from `~/.t3/userdata/statev2.sqlite` `scheduled_tasks.webhook_token`).
 Secrets: ops `FIREFLY_T3_DISPATCH_URL`, `FIREFLY_T3_DISPATCH_SECRET`. The task reads the item,
-picks a project (or `scratch`), `t3_thread_launch` with `auto-accept-edits`, comments
+picks a project (or `scratch`), `t3_thread_launch` with `auto-accept-edits` (v1; v2 2026-11-13: one thread per project per day, `auto` mode, see `plans/dispatch-daily-threads.md`), comments
 `T3 thread: <link>` on the item, and skips items that already have a `t3-thread://` comment.
 Only open items created in the last 24 h are sent; voice after transcription; sweep every 2 min.
 Tested 2026-11-10: bad signature 401, wrong token 404, replay "duplicate", real delivery ->
@@ -445,7 +445,7 @@ repo — the established mechanism (`servers/lib/ensure-github-runner.sh` docume
 2. **Audio first**, agent dispatch second.
 3. **Dispatch: no prefix.** Every capture goes to T3 and gets a thread; the agent works out
    what it is and which project. Sorting happens later, in the thread.
-4. **Auto-started threads run with auto-accept edits**, not full access.
+4. **Auto-started threads run in `auto` mode** (changed 2026-11-13 from auto-accept edits, which prompted on almost every command), not full access. See `plans/dispatch-daily-threads.md`.
 5. **Never T3 Connect.** idj talks to our own T3 server directly; fork changes are fine.
 
 ## Plan / steps

@@ -10,9 +10,28 @@ not a dumb per-item classifier. Read the whole open set, reason across it, and t
 actions the user confirms. This runs on the user's Claude subscription (you, here),
 so lean into whole-inbox reasoning that the server-side per-item enricher can't do.
 
+## 0. Use the helper, not curl
+
+`idj.ts` next to this file wraps every call below. It loads the config itself, never
+prints the token, and is one plain command, so it runs without a permission prompt in
+restricted modes (curl with `$VARS`, quoting and heredocs triggers one each time, and Git
+Bash's curl has failed here with `(43) A libcurl function was given a bad argument`).
+From any project, via the global link:
+
+```
+bun "C:/Users/camer/.claude/skills/idj-triage/idj.ts" get <id>
+bun "C:/Users/camer/.claude/skills/idj-triage/idj.ts" list "status=open&limit=100"
+bun "C:/Users/camer/.claude/skills/idj-triage/idj.ts" comment <id> "text..."   # or text on stdin
+bun "C:/Users/camer/.claude/skills/idj-triage/idj.ts" done <id>
+bun "C:/Users/camer/.claude/skills/idj-triage/idj.ts" reopen <id>
+bun "C:/Users/camer/.claude/skills/idj-triage/idj.ts" day [YYYY-MM-DD]          # a capture-day + its T3 threads
+```
+
+A capture-day runs 4:00 AM to 4:00 AM Pacific.
+
 ## 1. Load config
 
-Read the base URL and agent token, in this order:
+The helper does this for you. By hand, read the base URL and agent token, in this order:
 
 1. Env vars `IDJ_BASE_URL` and `IDJ_AGENT_TOKEN`.
 2. Otherwise the `.env.local` file **in the same directory as this SKILL.md** (KEY=value
