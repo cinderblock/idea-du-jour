@@ -496,6 +496,9 @@ repo — the established mechanism (`servers/lib/ensure-github-runner.sh` docume
 - [x] Fix: flat iCloud paths (`idj-device-id`, `idj-recording`), server decides "type instead"
       from the M4A's length (`typeInstead: true` under 2 s), empty device name falls back to
       the model.
+- [x] Live 2026-11-13 9:20 AM PST (17:20Z): idj `1f3a21f`, ops `30e5e42b` (pin bumped by hand
+      with Cameron's yes; Renovate hadn't noticed the new `:latest` digest after 9 hours, and
+      `e303a69` took ~17 hours the same way).
 - [ ] **Current:** Cameron reinstalls and retests; report which permission prompts still repeat.
 - [ ] Device pairing phase 2: design only, waiting for Cameron's go-ahead.
 - [x] Agent-maintained vocabulary (`916e191`): `glossary_versions` table, `GET/PUT /api/glossary`,
