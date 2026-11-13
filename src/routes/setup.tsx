@@ -95,8 +95,8 @@ function Setup() {
         <h2 className="text-sm font-semibold">2. Record to idj (Action button)</h2>
         <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
           One shortcut for everything: it records, and if you tap stop within two seconds
-          it asks you to type instead. Recordings are saved to iCloud Drive (Shortcuts/idj)
-          before uploading, and transcribed on the server.
+          it asks you to type instead. Recordings are saved to iCloud Drive
+          (Shortcuts/idj-recording*.m4a) before uploading, and transcribed on the server.
         </p>
 
         <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-gray-600 dark:text-gray-400">
@@ -126,7 +126,7 @@ function Setup() {
         </ol>
         <p className="mt-2 text-xs text-gray-500">
           Re-install the same way to pick up updates; the phone stays paired (its device ID
-          lives in iCloud Drive, Shortcuts/idj/device-id.txt). If it ever says “The
+          lives in iCloud Drive, Shortcuts/idj-device-id.txt). If it ever says “The
           network connection was lost”, look for an empty header row in its Get Contents of
           URL action.
         </p>

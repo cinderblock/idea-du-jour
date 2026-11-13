@@ -5,13 +5,14 @@
  *   bun run shortcut:sign         -> public/record-to-idj.shortcut (signed, on the mini)
  *
  * What it does on the phone:
- *   1. Finds this phone's device ID in iCloud Drive (Shortcuts/idj/device-id.txt),
+ *   1. Finds this phone's device ID in iCloud Drive (Shortcuts/idj-device-id.txt),
  *      or on first run makes one (SHA-256 of four random numbers and the time)
  *      and saves it there.
- *   2. Records audio (Normal quality, starts at once, stops on tap). If you
- *      stopped within 2 seconds it asks for typed text instead and POSTs
- *      {text} as JSON; otherwise it saves the recording to iCloud Drive
- *      (Shortcuts/idj/) and POSTs the file.
+ *   2. Records audio (Normal quality, starts at once, stops on tap), saves a
+ *      copy to iCloud Drive (Shortcuts/idj-recording*.m4a) and POSTs the file.
+ *      If the server finds it under 2 seconds long, it answers
+ *      {typeInstead: true}; the shortcut then asks for typed text and POSTs
+ *      {text} as JSON.
  *   3. Shows the server's `message` as a notification ("Saved to idj", or
  *      "approve this phone at …/devices" while the phone is new, or an error),
  *      or the whole answer if there's no message.
@@ -29,8 +30,6 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 
 const BASE_URL = process.env.IDJ_BASE_URL ?? 'https://idj.isozilla.com'
 const OUT = process.env.OUT ?? 'build/record-to-idj.unsigned.shortcut'
-/** Stopping the recorder within this many seconds means "I want to type". */
-const TYPE_INSTEAD_SECONDS = 2
 
 /** U+FFFC OBJECT REPLACEMENT CHARACTER: where a variable goes inside text. */
 const OBJ = '￼'
@@ -118,34 +117,39 @@ const action = (id: string, params: { [k: string]: P }): P => ({
 const id = (n: number) => `1D1D1D1D-0000-4000-8000-${String(n).padStart(12, '0')}`
 const out = (n: number, name: string): Output => ({ uuid: id(n), name })
 
+// Files live at the top of iCloud Drive/Shortcuts. "Save File" treats its path
+// as a file name and adds the extension itself: a path of `idj/` saved
+// `Shortcuts/idj.txt`, not a file in an idj folder. So: no folders, and no
+// extension on save paths.
+const ID_SAVE_PATH = 'idj-device-id'
+const ID_READ_PATH = 'idj-device-id.txt'
+const RECORDING_SAVE_PATH = 'idj-recording'
+
 const SAVED_ID = out(1, 'File')
 const ID_FROM_FILE = out(2, 'Text')
 const RAND = [1, 2, 3, 4].map((k) => out(2 + k, 'Random Number'))
 const NOW = out(7, 'Date')
 const SEED = out(8, 'Text')
 const NEW_ID = out(9, 'Hash')
-const NEW_ID_FILE = out(10, 'Renamed Item')
 const NEW_ID_TEXT = out(11, 'Text')
 const DEVICE_ID = out(12, 'If Result')
 const DEVICE_NAME = out(13, 'Device Name')
 const DEVICE_MODEL = out(14, 'Device Model')
 const NAME_ENCODED = out(15, 'URL Encoded Text')
-const START = out(20, 'Date')
 const AUDIO = out(21, 'Recorded Audio')
-const ELAPSED = out(22, 'Time Between Dates')
-const TYPED = out(23, 'Provided Input')
-const RESPONSE = out(24, 'If Result')
-const MESSAGE = out(25, 'Dictionary Value')
+const UPLOADED = out(22, 'Contents of URL')
+const TYPE_INSTEAD = out(23, 'Dictionary Value')
+const TYPED = out(24, 'Provided Input')
+const TYPED_SENT = out(25, 'Contents of URL')
 const HAVE_ID = id(100)
 const BRANCH = id(101)
-const CHECK = id(102)
 
-// Shortcuts' WFCondition codes.
-const IS_BETWEEN = 1003
+// Shortcuts' WFCondition code for "has any value".
 const HAS_ANY_VALUE = 100
 
-const capture = (body: { [k: string]: P }): P =>
+const capture = (uuid: string, body: { [k: string]: P }): P =>
   action('downloadurl', {
+    UUID: uuid,
     WFURL: text(`${BASE_URL}/api/capture`),
     WFHTTPMethod: 'POST',
     ShowHeaders: true,
@@ -157,11 +161,41 @@ const capture = (body: { [k: string]: P }): P =>
     ...body,
   })
 
+/**
+ * Tell the person what happened. Every idj answer carries `message`; anything
+ * else (a proxy's error page) is shown whole. `n` keeps the ids unique.
+ */
+function report(response: Output, n: number): P[] {
+  const message = out(n, 'Dictionary Value')
+  const group = id(n + 1)
+  return [
+    action('getvalueforkey', {
+      UUID: message.uuid,
+      WFInput: attach(response),
+      WFGetDictionaryValueType: 'Value',
+      WFDictionaryKey: text('message'),
+    }),
+    action('conditional', {
+      GroupingIdentifier: group,
+      WFControlFlowMode: 0,
+      WFInput: ifInput(message),
+      WFCondition: HAS_ANY_VALUE,
+    }),
+    action('notification', {
+      WFNotificationActionBody: textOf([message]),
+      WFNotificationActionSound: false,
+    }),
+    action('conditional', { GroupingIdentifier: group, WFControlFlowMode: 1 }),
+    action('showresult', { Text: textOf([response]) }),
+    action('conditional', { GroupingIdentifier: group, WFControlFlowMode: 2 }),
+  ]
+}
+
 const actions: P[] = [
   // --- this phone's device ID: read it, or make one and save it ------------
   action('documentpicker.open', {
     UUID: SAVED_ID.uuid,
-    WFGetFilePath: text('idj/device-id.txt'),
+    WFGetFilePath: text(ID_READ_PATH),
     WFFileErrorIfNotFound: false,
     WFShowFilePicker: false,
   }),
@@ -186,15 +220,10 @@ const actions: P[] = [
     WFTextActionText: textOf([RAND[0], '-', RAND[1], '-', RAND[2], '-', RAND[3], '-', NOW]),
   }),
   action('hash', { UUID: NEW_ID.uuid, WFInput: attach(SEED), WFHashType: 'SHA256' }),
-  action('setitemname', {
-    UUID: NEW_ID_FILE.uuid,
-    WFInput: attach(NEW_ID),
-    WFName: text('device-id.txt'),
-  }),
   action('documentpicker.save', {
-    WFInput: attach(NEW_ID_FILE),
+    WFInput: attach(NEW_ID),
     WFAskWhereToSave: false,
-    WFFileDestinationPath: 'idj/',
+    WFFileDestinationPath: ID_SAVE_PATH,
     WFSaveFileOverwrite: true,
   }),
   action('gettext', { UUID: NEW_ID_TEXT.uuid, WFTextActionText: textOf([NEW_ID]) }),
@@ -210,67 +239,45 @@ const actions: P[] = [
   }),
 
   // --- capture --------------------------------------------------------------
-  action('date', { UUID: START.uuid, WFDateActionMode: 'Current Date' }),
   action('recordaudio', {
     UUID: AUDIO.uuid,
     WFRecordingCompression: 'Normal',
     WFRecordingStart: 'Immediately',
     WFRecordingEnd: 'On Tap',
   }),
-  // How long the recorder was open. Its sign depends on Shortcuts' argument
-  // order, so the check is "between -N and N", which holds either way.
-  action('gettimebetweendates', {
-    UUID: ELAPSED.uuid,
-    WFInput: attach(START),
-    WFTimeUntilUnit: 'Seconds',
+  // Keep a copy first (a dead network can't lose it), then upload the file.
+  action('documentpicker.save', {
+    WFInput: attach(AUDIO),
+    WFAskWhereToSave: false,
+    WFFileDestinationPath: RECORDING_SAVE_PATH,
+    WFSaveFileOverwrite: false,
+  }),
+  capture(UPLOADED.uuid, { WFHTTPBodyType: 'File', WFRequestVariable: attach(AUDIO) }),
+
+  // The server measures the recording (the phone can't reliably time its own
+  // recorder). Stopped within a couple of seconds, it stores nothing and
+  // answers {typeInstead: true}: ask for text and send that as JSON.
+  action('getvalueforkey', {
+    UUID: TYPE_INSTEAD.uuid,
+    WFInput: attach(UPLOADED),
+    WFGetDictionaryValueType: 'Value',
+    WFDictionaryKey: text('typeInstead'),
   }),
   action('conditional', {
     GroupingIdentifier: BRANCH,
     WFControlFlowMode: 0,
-    WFInput: ifInput(ELAPSED),
-    WFCondition: IS_BETWEEN,
-    WFNumberValue: -TYPE_INSTEAD_SECONDS,
-    WFAnotherNumber: TYPE_INSTEAD_SECONDS,
+    WFInput: ifInput(TYPE_INSTEAD),
+    WFCondition: HAS_ANY_VALUE,
   }),
-  // stopped almost at once: type instead, sent as JSON {text}
   action('ask', { UUID: TYPED.uuid, WFAskActionPrompt: 'Note for idj', WFInputType: 'Text' }),
-  capture({
+  capture(TYPED_SENT.uuid, {
     WFHTTPBodyType: 'JSON',
     WFJSONValues: dict([{ key: 'text', value: textOf([TYPED]) }]),
   }),
+  ...report(TYPED_SENT, 30),
   action('conditional', { GroupingIdentifier: BRANCH, WFControlFlowMode: 1 }),
-  // keep a copy first (a dead network can't lose it), then upload the file
-  action('documentpicker.save', {
-    WFInput: attach(AUDIO),
-    WFAskWhereToSave: false,
-    WFFileDestinationPath: 'idj/',
-    WFSaveFileOverwrite: false,
-  }),
-  capture({ WFHTTPBodyType: 'File', WFRequestVariable: attach(AUDIO) }),
-  action('conditional', { GroupingIdentifier: BRANCH, WFControlFlowMode: 2, UUID: RESPONSE.uuid }),
-
-  // --- tell the person what happened ----------------------------------------
-  // Every idj answer carries `message`; anything else (a proxy's error page)
-  // is shown whole.
-  action('getvalueforkey', {
-    UUID: MESSAGE.uuid,
-    WFInput: attach(RESPONSE),
-    WFGetDictionaryValueType: 'Value',
-    WFDictionaryKey: text('message'),
-  }),
-  action('conditional', {
-    GroupingIdentifier: CHECK,
-    WFControlFlowMode: 0,
-    WFInput: ifInput(MESSAGE),
-    WFCondition: HAS_ANY_VALUE,
-  }),
-  action('notification', {
-    WFNotificationActionBody: textOf([MESSAGE]),
-    WFNotificationActionSound: false,
-  }),
-  action('conditional', { GroupingIdentifier: CHECK, WFControlFlowMode: 1 }),
-  action('showresult', { Text: textOf([RESPONSE]) }),
-  action('conditional', { GroupingIdentifier: CHECK, WFControlFlowMode: 2 }),
+  ...report(UPLOADED, 40),
+  action('conditional', { GroupingIdentifier: BRANCH, WFControlFlowMode: 2 }),
 ]
 
 const shortcut: P = {

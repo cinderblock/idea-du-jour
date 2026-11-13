@@ -85,4 +85,19 @@ check 'text capture' 201 -X POST -H "Authorization: Bearer ${token}" \
 check 'voice capture' 201 -X POST -H "Authorization: Bearer ${token}" \
 	-H 'Content-Type: audio/wav' --data-binary "@${wav}" "${base}/api/capture"
 
+# A half-second M4A (just ftyp + moov/mvhd): a recording stopped at once means
+# "type instead", and nothing is stored.
+{
+	printf '\x00\x00\x00\x10ftypM4A \x00\x00\x00\x00'
+	printf '\x00\x00\x00\x24moov'
+	printf '\x00\x00\x00\x1cmvhd\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+	printf '\x00\x00\x03\xe8\x00\x00\x01\xf4' # timescale 1000, duration 500
+} >"$wav"
+check 'short recording asks to type' 200 -X POST -H "Authorization: Bearer ${token}" \
+	-H 'Content-Type: audio/mp4' --data-binary "@${wav}" "${base}/api/capture"
+if ! grep -q '"typeInstead":true' "$body"; then
+	echo "FAIL short recording asks to type: $(cat "$body")"
+	exit 1
+fi
+
 echo "smoke test passed"

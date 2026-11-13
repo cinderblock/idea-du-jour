@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { resolveAudioMime } from '../../server/audio'
+import { audioDurationSeconds, resolveAudioMime } from '../../server/audio'
 import {
   DeviceError,
   clientIp,
@@ -37,6 +37,14 @@ function isAudioType(contentType: string): boolean {
 const json = (status: number, data: Record<string, unknown>) => Response.json(data, { status })
 
 /**
+ * A recording shorter than this means "I stopped at once: let me type". The
+ * server decides (the phone can't reliably time its own recorder) and answers
+ * `{typeInstead: true}`; the shortcut then asks for text and sends that.
+ * Nothing is stored for the short clip.
+ */
+const TYPE_INSTEAD_SECONDS = 2
+
+/**
  * Read the body: a recording (raw, as Shortcuts' "Request Body: File" sends it,
  * or a multipart part), or text (raw text/plain, or JSON {text, ...}).
  */
@@ -63,6 +71,10 @@ async function parseBody(request: Request): Promise<Parsed | Response> {
     const mime = resolveAudioMime(partType, bytes)
     if (!mime) {
       return json(415, { error: `not a recognised audio file (${partType || 'no type'})` })
+    }
+    const seconds = audioDurationSeconds(bytes)
+    if (seconds !== null && seconds < TYPE_INSTEAD_SECONDS) {
+      return json(200, { typeInstead: true, seconds, message: 'Type your note instead' })
     }
     return { kind: 'audio', bytes, mime }
   }

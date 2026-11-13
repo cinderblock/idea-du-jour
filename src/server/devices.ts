@@ -64,10 +64,11 @@ export function parseDeviceHeaders(request: Request): DeviceInfo | null {
   if (!/^[A-Za-z0-9_-]{32,128}$/.test(deviceId)) {
     throw new DeviceError(400, 'device id must be 32-128 letters, digits, - or _')
   }
+  const model = decodeHeader(request.headers.get('x-idj-device-model'), 40)
   return {
     deviceId,
-    name: decodeHeader(request.headers.get('x-idj-device-name'), 80) ?? 'Unnamed device',
-    model: decodeHeader(request.headers.get('x-idj-device-model'), 40),
+    name: decodeHeader(request.headers.get('x-idj-device-name'), 80) ?? model ?? 'Unnamed device',
+    model,
   }
 }
 

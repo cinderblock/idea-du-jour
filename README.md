@@ -63,7 +63,7 @@ transcript can always be redone.
 
 **Install it, don't build it.** `/setup` → step 2 → **Install "Record to idj"** (in Safari)
 downloads a signed shortcut. There's no token to paste: the phone **pairs**. On first run the
-shortcut makes a random device ID, keeps it in iCloud Drive (`Shortcuts/idj/device-id.txt`),
+shortcut makes a random device ID, keeps it in iCloud Drive (`Shortcuts/idj-device-id.txt`),
 and sends it with every capture. A new phone's captures are held, the inbox shows a
 "captures waiting" banner, and `/devices` lists the phone with Approve / Reject. Approve
 releases what it captured into the inbox (with the original times); after that its
@@ -71,8 +71,9 @@ captures go straight in. Revoke stops a phone. A stranger with the public file c
 fill the waiting list (capped: 20 captures and 25 MB per device, 20 waiting devices,
 30 requests/min per IP), never the inbox. Token auth (`Authorization: Bearer`) still
 works for everything else. The shortcut:
-records (Normal, starts at once, stops on tap); if you stop within 2 seconds, asks you to
-type instead; saves the recording to iCloud Drive (`Shortcuts/idj/`) and uploads it;
+records (Normal, starts at once, stops on tap); saves the recording to iCloud Drive
+(`Shortcuts/idj-recording*.m4a`) and uploads it; if the server finds it under 2 seconds it
+answers `{typeInstead: true}` and the shortcut asks you to type instead;
 then shows "Saved to idj" or the server's error. Bind it to the **Action button** (not
 "Hey Siri": *Record Audio* freezes when a shortcut is started by voice).
 

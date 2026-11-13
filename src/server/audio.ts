@@ -53,6 +53,48 @@ export function resolveAudioMime(declared: string | null, bytes: Uint8Array): st
   return sniffMime(bytes) ?? (d.startsWith('audio/') ? d : null)
 }
 
+/**
+ * Length in seconds of an MP4/M4A recording (what iPhone records), read from
+ * its `mvhd` box. Null for other formats or anything it can't read, so callers
+ * treat "unknown" as "long enough".
+ */
+export function audioDurationSeconds(bytes: Uint8Array): number | null {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+  const ascii = (at: number) => String.fromCharCode(...bytes.subarray(at, at + 4))
+  // Walk boxes: top level, then into moov, until mvhd.
+  let at = 0
+  let end = bytes.byteLength
+  while (at + 8 <= end) {
+    let size = view.getUint32(at)
+    const type = ascii(at + 4)
+    let header = 8
+    if (size === 1 && at + 16 <= end) {
+      size = Number(view.getBigUint64(at + 8))
+      header = 16
+    } else if (size === 0) {
+      size = end - at
+    }
+    if (size < header || at + size > end) return null
+    if (type === 'moov') {
+      end = at + size
+      at += header
+      continue
+    }
+    if (type === 'mvhd') {
+      const body = at + header
+      const version = bytes[body]
+      const p = body + 4 + (version === 1 ? 16 : 8)
+      if (p + (version === 1 ? 12 : 8) > end) return null
+      const timescale = view.getUint32(p)
+      const duration =
+        version === 1 ? Number(view.getBigUint64(p + 4)) : view.getUint32(p + 4)
+      return timescale ? duration / timescale : null
+    }
+    at += size
+  }
+  return null
+}
+
 export async function saveAudio(
   itemId: string,
   bytes: Uint8Array,
