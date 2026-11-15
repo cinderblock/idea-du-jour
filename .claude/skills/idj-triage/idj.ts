@@ -7,7 +7,9 @@
  *   bun idj.ts comment <id> [text]   add a comment (text from the args, or stdin)
  *   bun idj.ts done <id>             mark done
  *   bun idj.ts reopen <id>           reopen
- *   bun idj.ts day [YYYY-MM-DD]      captures from one capture-day, with their T3 threads
+ *   bun idj.ts day [YYYY-MM-DD] [--for <id>]
+ *                                    captures from one capture-day, with their T3 threads
+ *                                    and minutes since each thread's last capture (to <id>, else now)
  *
  * Why a script and not curl: one plain `bun idj.ts ...` command needs no shell
  * variables, quoting or heredocs, so agents in restricted permission modes can
@@ -154,8 +156,11 @@ type Event = { type: string; ts: number; payload?: { text?: string } }
 // Project names can hold parentheses: "(LibreHours (time-tracker))".
 const THREAD_RE = /T3 thread:\s*<?(t3-thread:\/\/[^\s>]+)>?\s*(?:\((.*)\))?\s*$/m
 
-async function day(dayArg?: string) {
-  const d = dayArg ?? captureDay(Date.now())
+async function day(dayArg?: string, forId?: string) {
+  // With --for and no date, use that capture's own day, so a capture held past
+  // the 4 AM rollover is still measured against the day it was made.
+  const forTs = forId && !dayArg ? ((await api(`/api/items/${forId}`)) as { item: Item }).item.createdTs : undefined
+  const d = dayArg ?? captureDay(forTs ?? Date.now())
   const [start, end] = dayBounds(d)
   const { items } = (await api('/api/items?limit=200')) as { items: Item[] }
   const inDay = items.filter((i) => i.createdTs >= start && i.createdTs < end).sort((a, b) => a.createdTs - b.createdTs)
@@ -170,6 +175,7 @@ async function day(dayArg?: string) {
       .reverse() // newest first: a later link supersedes an earlier one
     out.push({
       id: it.id,
+      createdTs: it.createdTs,
       local: localTime(it.createdTs),
       status: it.status,
       voice: Boolean(it.audio),
@@ -177,7 +183,35 @@ async function day(dayArg?: string) {
       threads,
     })
   }
-  console.log(JSON.stringify({ day: d, items: out }, null, 2))
+
+  // One row per thread in use today, with the gap since its latest capture, so
+  // agents copy a number instead of doing clock arithmetic (which they get
+  // wrong). The gap is measured to the `--for` item's capture time, else to now.
+  const ref = forId ? out.find((i) => i.id === forId) : undefined
+  if (forId && !ref) die(`day: --for ${forId} is not a capture from ${d}`)
+  const refTs = ref?.createdTs ?? Date.now()
+  const byThread = new Map<string, { link: string; threadId: string; project: string | null; lastItemId: string; lastLocal: string; lastTs: number }>()
+  for (const it of out) {
+    const current = it.threads[0]
+    if (!current || it.id === forId || it.createdTs > refTs) continue
+    byThread.set(current.threadId, {
+      ...current,
+      lastItemId: it.id,
+      lastLocal: it.local,
+      lastTs: it.createdTs,
+    })
+  }
+  const threadSummary = [...byThread.values()]
+    .sort((a, b) => b.lastTs - a.lastTs)
+    .map(({ lastTs, ...t }) => ({ ...t, minutesSinceLast: Math.round((refTs - lastTs) / 60_000) }))
+
+  console.log(
+    JSON.stringify(
+      { day: d, gapsMeasuredTo: ref ? `capture ${ref.id} (${ref.local})` : 'now', threads: threadSummary, items: out },
+      null,
+      2,
+    ),
+  )
 }
 
 async function readStdin(): Promise<string> {
@@ -214,9 +248,13 @@ switch (cmd) {
   case 'reopen':
     console.log(JSON.stringify(await api(`/api/items/${need(0, '<id>')}/${cmd}`, { method: 'POST' })))
     break
-  case 'day':
-    await day(args[0])
+  case 'day': {
+    const i = args.indexOf('--for')
+    const forId = i >= 0 ? (args[i + 1] ?? die('day: --for needs an item id')) : undefined
+    const rest = i >= 0 ? args.filter((_, j) => j !== i && j !== i + 1) : args
+    await day(rest[0], forId)
     break
+  }
   default:
-    die('usage: bun idj.ts get <id> | list [query] | comment <id> [text] | done <id> | reopen <id> | day [YYYY-MM-DD]')
+    die('usage: bun idj.ts get <id> | list [query] | comment <id> [text] | done <id> | reopen <id> | day [YYYY-MM-DD] [--for <id>]')
 }

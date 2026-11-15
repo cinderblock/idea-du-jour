@@ -24,7 +24,7 @@ bun "C:/Users/camer/.claude/skills/idj-triage/idj.ts" list "status=open&limit=10
 bun "C:/Users/camer/.claude/skills/idj-triage/idj.ts" comment <id> "text..."   # or text on stdin
 bun "C:/Users/camer/.claude/skills/idj-triage/idj.ts" done <id>
 bun "C:/Users/camer/.claude/skills/idj-triage/idj.ts" reopen <id>
-bun "C:/Users/camer/.claude/skills/idj-triage/idj.ts" day [YYYY-MM-DD]          # a capture-day + its T3 threads
+bun "C:/Users/camer/.claude/skills/idj-triage/idj.ts" day [YYYY-MM-DD] [--for <id>]  # a capture-day, its T3 threads, minutes since each one's last capture
 ```
 
 A capture-day runs 4:00 AM to 4:00 AM Pacific.
