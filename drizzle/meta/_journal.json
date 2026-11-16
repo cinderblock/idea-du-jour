@@ -43,6 +43,13 @@
       "when": 1794365448082,
       "tag": "0005_equal_mikhail_rasputin",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1794868566922,
+      "tag": "0006_mature_susan_delgado",
+      "breakpoints": true
     }
   ]
 }

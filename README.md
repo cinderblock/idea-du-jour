@@ -69,7 +69,9 @@ and sends it with every capture. A new phone's captures are held, the inbox show
 releases what it captured into the inbox (with the original times); after that its
 captures go straight in. Revoke stops a phone. A stranger with the public file can only
 fill the waiting list (capped: 20 captures and 25 MB per device, 20 waiting devices,
-30 requests/min per IP), never the inbox. Token auth (`Authorization: Bearer`) still
+30 requests/min per IP), never the inbox. Because the ID is in iCloud Drive, a new phone
+(or an iPad or Mac) on the same Apple ID is the same device; `/devices` keeps a history of
+each device's name and model changes, with the IP each came from. Token auth (`Authorization: Bearer`) still
 works for everything else. The shortcut:
 records (Normal, starts at once, stops on tap) and uploads it, with no local copy (iOS
 asks to save a media file on every run, ignoring "Always Allow"); if the server finds it under 2 seconds it

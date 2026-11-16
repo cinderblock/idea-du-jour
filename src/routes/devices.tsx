@@ -119,6 +119,30 @@ function DeviceRow({ d }: { d: Row }) {
           </strong>
         )}
       </p>
+      {d.changes.length > 0 && (
+        <details className="mt-1 text-xs text-gray-500">
+          <summary className="cursor-pointer">
+            {d.changes.length} name/model change{d.changes.length === 1 ? '' : 's'}, latest{' '}
+            {relativeTime(d.changes[0].ts)}
+          </summary>
+          <ul className="mt-1 space-y-0.5 pl-3">
+            {d.changes.map((c) => (
+              <li key={c.id} title={new Date(c.ts).toISOString()}>
+                {new Date(c.ts).toLocaleString(undefined, {
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric',
+                  hour: 'numeric',
+                  minute: '2-digit',
+                  timeZoneName: 'short',
+                })}
+                : {c.field}{' '}
+                “{c.fromValue ?? '—'}” → “{c.toValue ?? '—'}”{c.ip ? ` from ${c.ip}` : ''}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
       <div className="mt-2 flex gap-2">
         {d.status === 'pending' && (
           <>

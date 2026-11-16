@@ -143,7 +143,26 @@ export const pendingCaptures = sqliteTable('pending_captures', {
   audio: text('audio', { mode: 'json' }).$type<AudioRef>(),
 })
 
+/**
+ * device_changes — history of a device's reported name and model. The device
+ * ID lives in iCloud Drive, so every phone, iPad or Mac on the same Apple ID
+ * shares it; a new name or model on a known ID is how a new machine shows up.
+ * The `devices` row only keeps the latest values, so each change is kept here.
+ */
+export const deviceChanges = sqliteTable('device_changes', {
+  id: text('id').primaryKey(),
+  deviceId: text('device_id').notNull(),
+  ts: integer('ts').notNull(),
+  /** name | model */
+  field: text('field').notNull(),
+  fromValue: text('from_value'),
+  toValue: text('to_value'),
+  /** The IP the changed capture came from. */
+  ip: text('ip'),
+})
+
 export type Device = typeof devices.$inferSelect
+export type DeviceChange = typeof deviceChanges.$inferSelect
 export type PendingCapture = typeof pendingCaptures.$inferSelect
 
 /** users — single-user for now, but modeled as a table for WebAuthn (later). */

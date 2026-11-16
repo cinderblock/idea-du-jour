@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto'
 import { and, asc, count, desc, eq, inArray } from 'drizzle-orm'
 import { ulid } from 'ulid'
 import { db } from '../db/client'
-import { devices, pendingCaptures, type Device } from '../db/schema'
+import { deviceChanges, devices, pendingCaptures, type Device } from '../db/schema'
 import { deletePendingAudio, readPendingAudio, savePendingAudio } from './audio'
 import { enqueueDispatch } from './dispatch'
 import { enqueueEnrichment } from './enrich'
@@ -111,6 +111,23 @@ export async function resolveDevice(info: DeviceInfo, ip: string): Promise<Devic
       throw new DeviceError(403, `this device was ${found.status}; re-pair it from idj`)
     }
     if (found.status !== 'approved') rateLimit(ip)
+    const changes = (
+      [
+        ['name', found.name, info.name],
+        ['model', found.model, info.model],
+      ] as const
+    )
+      .filter(([, from, to]) => from !== to)
+      .map(([field, fromValue, toValue]) => ({
+        id: ulid(),
+        deviceId: found.id,
+        ts: now,
+        field,
+        fromValue,
+        toValue,
+        ip,
+      }))
+    if (changes.length) await db.insert(deviceChanges).values(changes)
     await db
       .update(devices)
       .set({ lastSeenTs: now, name: info.name, model: info.model })
@@ -187,7 +204,19 @@ export async function listDevices() {
     .from(pendingCaptures)
     .groupBy(pendingCaptures.deviceId)
   const byDevice = new Map(counts.map((c) => [c.deviceId, c.n]))
-  return rows.map(({ idHash: _h, ...d }) => ({ ...d, pendingCount: byDevice.get(d.id) ?? 0 }))
+  const history = await db.select().from(deviceChanges).orderBy(desc(deviceChanges.ts))
+  const changesBy = new Map<string, typeof history>()
+  for (const c of history) {
+    const list = changesBy.get(c.deviceId) ?? []
+    list.push(c)
+    changesBy.set(c.deviceId, list)
+  }
+  return rows.map(({ idHash: _h, ...d }) => ({
+    ...d,
+    pendingCount: byDevice.get(d.id) ?? 0,
+    /** Name and model changes, newest first. */
+    changes: changesBy.get(d.id) ?? [],
+  }))
 }
 
 /** For the inbox banner: devices waiting, and captures held for them. */
