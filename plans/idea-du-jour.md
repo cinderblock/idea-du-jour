@@ -496,6 +496,8 @@ repo — the established mechanism (`servers/lib/ensure-github-runner.sh` docume
 - [x] First phone test 2026-11-12 3:09–3:12 PM PST: install worked; three bugs (new device ID
       every run, quick-stop never asked to type, permission prompts on every run). See findings.
 - [x] Fix: flat iCloud paths (`idj-device-id`, `idj-recording`), server decides "type instead"
+- [x] Drop the local audio copy (iOS "save 1 media item" prompt every run). Tested on the
+  phone, live 2026-11-15 ~5:15 PM PST (01:15Z): idj `a3fa110`, ops `73420098`
       from the M4A's length (`typeInstead: true` under 2 s), empty device name falls back to
       the model.
 - [x] Live 2026-11-13 9:20 AM PST (17:20Z): idj `1f3a21f`, ops `30e5e42b` (pin bumped by hand
