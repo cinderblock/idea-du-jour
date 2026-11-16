@@ -42,11 +42,15 @@ threads he stopped.
       t3-thread://v2/ab3781d7-a1dd-4bbb-b3e9-6331e19b7569/mcp:launch:de2c86e2ae1ba78b5019572cae69da5e5259cdbd8918aebc200431fced3a5b78
       All three items re-linked to it. It coordinates with the main idj thread
       (c0a1eb91), which already owns the device-ID and text-mode fixes.
-- [ ] **Current:** push `aff26e1`-and-amendments to `master` (held for Cameron's yes: every master push
-      publishes an image that Renovate deploys, and the main thread is holding its own commit
-      `57e6873` to avoid redeploys mid-test). Then the main checkout pulls `idj.ts` (when the thread working there next
-      syncs with `origin/master`). Until then the dispatcher falls back to its own worktree's copy.
-- [ ] First real capture after this change: confirm a reused or new daily thread, no prompts.
+- [x] Pushed as `013697c`. The main checkout only pulled it on 2026-11-15 ~3:40 PM PST
+      (23:40Z, rebase to `2154486`); until then `idj.ts` was missing on the global skill path,
+      and the "fall back to your own worktree's copy" line didn't help (the dispatcher runs in
+      that same checkout).
+- [x] First real captures (2026-11-15, 20 test captures): new daily thread, then reused all day,
+      in order, including across 1–2 hour gaps.
+- [x] `day --for <id>` adds a top-level `threads` summary with `minutesSinceLast` (`96c6c37`).
+      Dispatcher prompt v3 copies that number, drops the useless fallback, and says to stop and
+      report if `idj.ts` is missing. Saved to the task 2026-11-15 ~5:40 PM PST (01:40Z).
 
 ## Findings / gotchas
 - Git Bash's curl (8.8.0, mingw64, Schannel) fails every HTTPS request with
@@ -57,6 +61,12 @@ threads he stopped.
 - The 2026-11-12 "time recording shows negative time" capture was routed to LibreHours
   (time-tracker). It was about the shortcut's recording timer. Context from neighbouring
   captures, plus the idj routing hint, is the fix.
+- The dispatcher worked out "It arrived N minutes after the previous one here" by clock
+  arithmetic on the `local` strings and got it wrong (27 for a real 88 on item
+  01M7GJNGVD9CDV2RV3HM3RK8N9). The helper now computes it.
+- Editing the dispatcher task from a thread in `auto` mode fails with
+  `runtime_mode_escalation_denied` (the task runs full-access). It needs a full-access thread
+  or a hand edit in T3.
 - Typecheck in a fresh worktree fails on `src/routes/setup.tsx` and `src/routes/shortcut.ts`
   (route tree not generated); pre-existing, unrelated to this change.
 
