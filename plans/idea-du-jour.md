@@ -505,7 +505,10 @@ repo — the established mechanism (`servers/lib/ensure-github-runner.sh` docume
 - [x] Live 2026-11-13 9:20 AM PST (17:20Z): idj `1f3a21f`, ops `30e5e42b` (pin bumped by hand
       with Cameron's yes; Renovate hadn't noticed the new `:latest` digest after 9 hours, and
       `e303a69` took ~17 hours the same way).
-- [ ] **Current:** Cameron reinstalls and retests; report which permission prompts still repeat.
+- [x] Cameron retested 2026-11-15: all working (one device, record and type paths, no repeat
+      permission prompts). The 5 revoked junk devices from the first test were deleted from
+      prod (DB backup `data/idj.db.bak-before-device-cleanup-20261115`); there's no UI to
+      remove a device yet.
 - [ ] Device pairing phase 2: design only, waiting for Cameron's go-ahead.
 - [x] Agent-maintained vocabulary (`916e191`): `glossary_versions` table, `GET/PUT /api/glossary`,
       `POST /api/items/:id/retranscribe`. T3 scheduled task "idj: maintain Whisper vocabulary"
