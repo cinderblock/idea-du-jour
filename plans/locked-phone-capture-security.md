@@ -120,9 +120,14 @@ uses "Hey Siri" while locked).
    - *Needs a secure approval:* infra/ops (existing CLAUDE.md rule), messages (iMessage, email,
      Slack), Home Assistant / physical, money or paid compute, deleting data, anything in other
      people's projects.
-   - Secure approval channel: a passkey/Face ID-gated approve/answer page. idj already has
-     passkey auth, so an "agent asks, Cameron answers on idj" route fits there. `ci-questions`
-     wasn't found on this machine or under cinderblock/TWILL-Tech on GitHub: ask where it lives.
+   - Secure approval channel: **the ops "ask" worker** (`ci-question.isozilla.com`, ops
+     `cloudflare/workers/ask/`, design `plans/ci-input-service.md`; first search missed it
+     because it's named "ask"). Already built: durable keyed requests, answer page, passkey
+     sessions, PWA + Web Push, long-poll answers. Deployed 2026-07-24 but **not live-usable
+     yet**: the 3 prod secrets, the first passkey bootstrap and the GitHub App are still on
+     Cameron's list there. Gap for this use: its only machine principal is GitHub OIDC (a CI
+     run). Agents on the PC need a new principal (e.g. a bearer token scoped to "create/poll
+     own requests"), an ops change that needs his per-change yes.
 
 ## Decisions already made (don't re-ask)
 - Research and proposal first; no change without a per-change yes (Cameron, 2026-11-16).
@@ -133,6 +138,9 @@ uses "Hey Siri" while locked).
 - [x] Read plans, capture/device/dispatch code, the live dispatcher prompt (read-only from
       `~/.t3/userdata/statev2.sqlite`).
 - [x] Threat model, options, recommendation (this doc).
+- [x] Device name/model change history (Cameron said yes 2026-11-16): `device_changes` table,
+      shown on `/devices`, README updated. `93d011e`, pushed (deploys via Renovate). Tested on a
+      temp DB: unchanged captures log nothing; name and model changes log from/to/IP.
 - [ ] Cameron picks an option.
 - [ ] If C: draft the exact dispatcher-prompt and thread-message wording, show it, then apply in a
       full-access thread or by hand (auto threads can't edit the task: `runtime_mode_escalation_denied`).
@@ -142,7 +150,9 @@ uses "Hey Siri" while locked).
    for the rest; dispatcher off full-access)? Recommended.
 2. Close device registration (`IDJ_DEVICE_REGISTRATION=closed`) and stop auto-dispatching
    released held captures? Recommended.
-3. Where is `ci-questions`? If it doesn't exist yet, build the approval page into idj (passkey)?
+3. Use the ops "ask" worker as the secure approval channel? Needs: finish its setup (secrets,
+   first passkey) and add an agent principal next to GitHub OIDC (ops change). Recommended
+   over building a second approval page into idj.
 4. Turn off Siri-when-locked on the phone (A, your setting)? Recommend: your call.
 
 ## Things not to do
