@@ -156,15 +156,19 @@ export const Route = createFileRoute('/api/capture')({
 
           if (device.status === 'approved') return accept(parsed, deviceActor(device), null)
 
-          const id = await holdCapture(
+          const { id, waiting } = await holdCapture(
             device,
             parsed.kind === 'audio' ? { audio: parsed.bytes, mime: parsed.mime } : { text: parsed.text },
           )
           const base = env.publicOrigin.replace(/\/+$/, '')
+          // Shown on every capture until approval, so say plainly that it's one
+          // approval for this phone, not one per capture.
+          const held = waiting === 1 ? '1 capture' : `${waiting} captures`
           return json(202, {
             id,
             pending: true,
-            message: `Saved, but this phone isn't approved yet. Approve “${device.name}” at ${base}/devices and it will appear in your inbox.`,
+            waiting,
+            message: `Held (${held} waiting). This phone needs one approval at ${base}/devices; everything it sends is kept until then.`,
           })
         } catch (e) {
           if (e instanceof DeviceError) return json(e.status, { error: e.message, message: e.message })

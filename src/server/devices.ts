@@ -150,26 +150,30 @@ async function pendingUsage(deviceId: string) {
   return { count: rows.length, bytes }
 }
 
-/** Hold a capture from an unapproved device. Returns the pending capture's id. */
+/**
+ * Hold a capture from an unapproved device. Returns the pending capture's id
+ * and how many of this device's captures are now waiting, this one included.
+ */
 export async function holdCapture(
   device: Device,
   capture: { text: string } | { audio: Uint8Array; mime: string },
-): Promise<string> {
+): Promise<{ id: string; waiting: number }> {
   const usage = await pendingUsage(device.id)
   if (usage.count >= LIMITS.pendingCapturesPerDevice) {
     throw new DeviceError(429, 'this device has too many captures waiting for approval')
   }
   const id = ulid()
+  const waiting = usage.count + 1
   if ('text' in capture) {
     await db.insert(pendingCaptures).values({ id, deviceId: device.id, ts: Date.now(), text: capture.text })
-    return id
+    return { id, waiting }
   }
   if (usage.bytes + capture.audio.byteLength > LIMITS.pendingAudioBytesPerDevice) {
     throw new DeviceError(429, 'this device has too much audio waiting for approval')
   }
   const audio = await savePendingAudio(id, capture.audio, capture.mime)
   await db.insert(pendingCaptures).values({ id, deviceId: device.id, ts: Date.now(), audio })
-  return id
+  return { id, waiting }
 }
 
 /** The actor recorded on events from a device. */
