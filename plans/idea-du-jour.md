@@ -498,6 +498,8 @@ repo — the established mechanism (`servers/lib/ensure-github-runner.sh` docume
 - [x] Fix: flat iCloud paths (`idj-device-id`, `idj-recording`), server decides "type instead"
 - [x] Drop the local audio copy (iOS "save 1 media item" prompt every run). Tested on the
   phone, live 2026-11-15 ~5:15 PM PST (01:15Z): idj `a3fa110`, ops `73420098`
+- [x] Waiting phone's notification says "Held (N waiting), one approval". Live 2026-11-15
+  6:27 PM PST (02:27Z): idj `3506cc6`, ops `0b1b0bac`
       from the M4A's length (`typeInstead: true` under 2 s), empty device name falls back to
       the model.
 - [x] Live 2026-11-13 9:20 AM PST (17:20Z): idj `1f3a21f`, ops `30e5e42b` (pin bumped by hand
@@ -535,6 +537,12 @@ repo — the established mechanism (`servers/lib/ensure-github-runner.sh` docume
   Start Recording "Immediately", the microphone prompt interrupts a recorder that has already
   started. Later runs are fine. The only workaround is Start Recording "On Tap" (an extra
   tap every run), so it's left alone. Chase it only if a first recording comes out damaged.
+- **Hand-bumping the ops pin: use the `"digest"` from the build's "Summarize how to deploy this
+  build" step, not `containerimage.digest`.** They can differ: the latter is a per-platform
+  digest that ghcr doesn't serve. Pinning it (ops `edbcca0e`, 2026-11-15 6:05 PM PST) failed
+  the firefly and sentinel deploys with `manifest unknown`; fixed in ops `0b1b0bac`. Check with
+  the registry before pushing: `GET ghcr.io/v2/cinderblock/idea-du-jour/manifests/sha256:<d>`
+  should return 200.
 - **Device name header arrived empty** (stored as "Unnamed device"); the model ("iPhone")
   came through. Cause not known (Get Device Details "Device Name" or the URL Encode step).
   The server now falls back to the model.
