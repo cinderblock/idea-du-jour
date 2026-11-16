@@ -304,6 +304,8 @@ existing idj tags, and a hand-written Math Camp list (shade pyramids, T-parts, t
 
 **Risk to design for:** a lost 3-minute recording is far worse than today's failed text POST.
 The Shortcut should save to Files first and upload second, so a dead network never eats audio.
+**Dropped 2026-11-15** (Cameron's call): iOS prompts on that save every run (see findings).
+A failed upload now shows its error and the recording is lost; re-record.
 
 ### Agent dispatch: idj capture -> T3 Code thread — BUILT 2026-11-10 (idj `b10b7ec`, ops `e65ec359`)
 **As built:** idj POSTs `{event:"idj.capture", itemId, kind, voice, createdTs, url}` signed
@@ -521,6 +523,11 @@ repo — the established mechanism (`servers/lib/ensure-github-runner.sh` docume
   the M4A `mvhd`). Rather than guess at Shortcuts' date/number semantics, the server now
   measures the recording and answers `{typeInstead: true}`; the shortcut only uses
   "has any value", which is known to work.
+- **Saving the recording with Save File prompts on every run** ("Allow 'Record to idj' to save
+  1 media item to a file?"), and "Always Allow" never sticks (2026-11-15, iOS, screen
+  recordings in the idea-du-jour daily thread). Not because of new file names: a fixed
+  `idj-last-recording` with overwrite on prompted just the same. The device-ID text save
+  doesn't prompt. Fix: no local copy of the audio at all.
 - **Device name header arrived empty** (stored as "Unnamed device"); the model ("iPhone")
   came through. Cause not known (Get Device Details "Device Name" or the URL Encode step).
   The server now falls back to the model.

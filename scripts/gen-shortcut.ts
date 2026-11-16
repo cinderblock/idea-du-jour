@@ -8,8 +8,8 @@
  *   1. Finds this phone's device ID in iCloud Drive (Shortcuts/idj-device-id.txt),
  *      or on first run makes one (SHA-256 of four random numbers and the time)
  *      and saves it there.
- *   2. Records audio (Normal quality, starts at once, stops on tap), saves a
- *      copy to iCloud Drive (Shortcuts/idj-recording*.m4a) and POSTs the file.
+ *   2. Records audio (Normal quality, starts at once, stops on tap) and POSTs
+ *      the file. No local copy: see the comment at the upload.
  *      If the server finds it under 2 seconds long, it answers
  *      {typeInstead: true}; the shortcut then asks for typed text and POSTs
  *      {text} as JSON.
@@ -123,7 +123,6 @@ const out = (n: number, name: string): Output => ({ uuid: id(n), name })
 // extension on save paths.
 const ID_SAVE_PATH = 'idj-device-id'
 const ID_READ_PATH = 'idj-device-id.txt'
-const RECORDING_SAVE_PATH = 'idj-recording'
 
 const SAVED_ID = out(1, 'File')
 const ID_FROM_FILE = out(2, 'Text')
@@ -245,13 +244,10 @@ const actions: P[] = [
     WFRecordingStart: 'Immediately',
     WFRecordingEnd: 'On Tap',
   }),
-  // Keep a copy first (a dead network can't lose it), then upload the file.
-  action('documentpicker.save', {
-    WFInput: attach(AUDIO),
-    WFAskWhereToSave: false,
-    WFFileDestinationPath: RECORDING_SAVE_PATH,
-    WFSaveFileOverwrite: false,
-  }),
+  // No local copy first: saving audio with Save File makes iOS ask "save 1
+  // media item to a file?" on every run, and "Always Allow" never sticks (tried
+  // a fixed overwritten name too, 2026-11-15). The server keeps every recording;
+  // a failed upload shows an error, so you know to record again.
   capture(UPLOADED.uuid, { WFHTTPBodyType: 'File', WFRequestVariable: attach(AUDIO) }),
 
   // The server measures the recording (the phone can't reliably time its own

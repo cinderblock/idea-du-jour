@@ -95,8 +95,8 @@ function Setup() {
         <h2 className="text-sm font-semibold">2. Record to idj (Action button)</h2>
         <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
           One shortcut for everything: it records, and if you tap stop within two seconds
-          it asks you to type instead. Recordings are saved to iCloud Drive
-          (Shortcuts/idj-recording*.m4a) before uploading, and transcribed on the server.
+          it asks you to type instead. Recordings are uploaded straight away and
+          transcribed on the server; if an upload fails you'll see the error.
         </p>
 
         <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-gray-600 dark:text-gray-400">

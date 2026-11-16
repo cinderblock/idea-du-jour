@@ -71,8 +71,8 @@ captures go straight in. Revoke stops a phone. A stranger with the public file c
 fill the waiting list (capped: 20 captures and 25 MB per device, 20 waiting devices,
 30 requests/min per IP), never the inbox. Token auth (`Authorization: Bearer`) still
 works for everything else. The shortcut:
-records (Normal, starts at once, stops on tap); saves the recording to iCloud Drive
-(`Shortcuts/idj-recording*.m4a`) and uploads it; if the server finds it under 2 seconds it
+records (Normal, starts at once, stops on tap) and uploads it, with no local copy (iOS
+asks to save a media file on every run, ignoring "Always Allow"); if the server finds it under 2 seconds it
 answers `{typeInstead: true}` and the shortcut asks you to type instead;
 then shows "Saved to idj" or the server's error. Bind it to the **Action button** (not
 "Hey Siri": *Record Audio* freezes when a shortcut is started by voice).
