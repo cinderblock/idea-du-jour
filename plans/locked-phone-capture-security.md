@@ -94,8 +94,40 @@ Also recommended alongside: show a held device's captures on `/devices` before a
 (T4), and keep A as a personal setting he can choose (turn off Siri-when-locked if he rarely
 uses "Hey Siri" while locked).
 
+## Cameron's feedback (2026-11-16) and answers
+1. **Lots of held captures means misconfiguration or spam, not a backlog to release.** And with
+   his one phone approved, new device registration should probably be off.
+   - Proposed change (needs his yes): env flag `IDJ_DEVICE_REGISTRATION=closed` (default open
+     for fresh installs). Closed: an unknown device ID gets 403 and nothing is held or stored.
+     Optionally a passkey-gated "open registration for 30 minutes" toggle on `/devices` for
+     adding a device later. Approving a pending device would no longer auto-dispatch its held
+     captures: release them as items only, with dispatch off, or show them first.
+   - **Phone transfer:** the device ID lives in iCloud Drive (`Shortcuts/idj-device-id.txt`),
+     so a new phone on the same Apple ID reads the same file and *is* the same approved device.
+     No re-pairing, works with registration closed. Same for an iPad or Mac running the
+     Shortcut. The flip side: there's no per-phone key, and the server silently overwrites
+     name/model on each capture. Cheap fix if wanted: log an event when name/model changes.
+2. **Voice corpus for a future speaker check.** Already accumulating: every voice capture's
+   recording is kept permanently in the audio dir (`items.audio`, nothing deletes it). Missing
+   only a label for recordings that aren't his voice; default "his" is right for nearly all.
+   Later: speaker embeddings (e.g. an ECAPA-style model on sentinel next to Whisper) scored
+   against his enrolment. Still a signal, never authentication (replay, a recording of him).
+3. **He wants some pushes/deploys from captures for easy, obvious things**, and a secure way to
+   approve the rest or answer follow-ups ("something like ci-questions"). Reframes option C as
+   tiers:
+   - *Capture is enough:* local work; non-force pushes to his own repos; deploys of his own
+     apps where rollback is one step.
+   - *Needs a secure approval:* infra/ops (existing CLAUDE.md rule), messages (iMessage, email,
+     Slack), Home Assistant / physical, money or paid compute, deleting data, anything in other
+     people's projects.
+   - Secure approval channel: a passkey/Face ID-gated approve/answer page. idj already has
+     passkey auth, so an "agent asks, Cameron answers on idj" route fits there. `ci-questions`
+     wasn't found on this machine or under cinderblock/TWILL-Tech on GitHub: ask where it lives.
+
 ## Decisions already made (don't re-ask)
 - Research and proposal first; no change without a per-change yes (Cameron, 2026-11-16).
+- Easy/obvious pushes and deploys should still work from a capture; no blanket ban (2026-11-16).
+- Many held captures = suspect, not a backlog to release (2026-11-16).
 
 ## Progress log
 - [x] Read plans, capture/device/dispatch code, the live dispatcher prompt (read-only from
@@ -106,9 +138,12 @@ uses "Hey Siri" while locked).
       full-access thread or by hand (auto threads can't edit the task: `runtime_mode_escalation_denied`).
 
 ## Open questions for the user
-1. Go with C (prompt rules + dispatcher off full-access)? Recommended.
-2. Want D's "Confirm as me" button too, or only if C turns out too soft? Recommend: later.
-3. Turn off Siri-when-locked on the phone (A, your setting)? Recommend: your call; C makes it optional.
+1. Go with tiered C (capture is enough for own-repo pushes and easy deploys; secure approval
+   for the rest; dispatcher off full-access)? Recommended.
+2. Close device registration (`IDJ_DEVICE_REGISTRATION=closed`) and stop auto-dispatching
+   released held captures? Recommended.
+3. Where is `ci-questions`? If it doesn't exist yet, build the approval page into idj (passkey)?
+4. Turn off Siri-when-locked on the phone (A, your setting)? Recommend: your call.
 
 ## Things not to do
 - Don't rely on voice match or anything in the transcript ("this is Cameron") as authentication.
