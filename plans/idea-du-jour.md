@@ -530,6 +530,11 @@ repo — the established mechanism (`servers/lib/ensure-github-runner.sh` docume
   recordings in the idea-du-jour daily thread). Not because of new file names: a fixed
   `idj-last-recording` with overwrite on prompted just the same. The device-ID text save
   doesn't prompt. Fix: no local copy of the audio at all.
+- **Negative time on the recorder screen, first run after install only** (2026-11-15). iOS's
+  own Record Audio screen, not ours (the shortcut has no timer since `ceb999c`): with
+  Start Recording "Immediately", the microphone prompt interrupts a recorder that has already
+  started. Later runs are fine. The only workaround is Start Recording "On Tap" (an extra
+  tap every run), so it's left alone. Chase it only if a first recording comes out damaged.
 - **Device name header arrived empty** (stored as "Unnamed device"); the model ("iPhone")
   came through. Cause not known (Get Device Details "Device Name" or the URL Encode step).
   The server now falls back to the model.
