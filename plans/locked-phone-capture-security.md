@@ -141,11 +141,24 @@ uses "Hey Siri" while locked).
 - [x] Device name/model change history (Cameron said yes 2026-11-16): `device_changes` table,
       shown on `/devices`, README updated. `93d011e`, pushed (deploys via Renovate). Tested on a
       temp DB: unchanged captures log nothing; name and model changes log from/to/IP.
-- [ ] Cameron picks an option.
+- [x] Cameron's picks (2026-11-16): tiered C yes; close registration + don't dispatch held
+      captures yes; use the ops ask worker for approvals yes; Siri-when-locked stays ON.
+- [x] Registration closes once a device is approved; `/devices` can open a 30-minute window;
+      captures released by approval are marked dispatched (`held`) and never reach agents.
+      `49b2150`, pushed. Tested on a temp DB (fresh = open, after approve = 403 for new IDs,
+      known device fine, window opens/closes, held item has dispatchedTs).
+- [ ] **Current step:** dispatcher prompt v4 with trust rules (`plans/dispatcher-prompt-v4.md`).
+      Blocked: `schedule_task` from an `auto` thread refuses to edit the full-access task
+      (`runtime_mode_escalation_denied`), and the tool has no runtime-mode field. Cameron sets
+      the task's mode to `auto` by hand in T3; then this thread can save the prompt.
+- [ ] Ops ask worker as the approval channel: Cameron finishes its setup (3 prod secrets, first
+      passkey); then stage an ops change adding an agent principal (per-change yes), then a
+      helper the threads call to ask and wait.
 - [ ] If C: draft the exact dispatcher-prompt and thread-message wording, show it, then apply in a
       full-access thread or by hand (auto threads can't edit the task: `runtime_mode_escalation_denied`).
 
 ## Open questions for the user
+_All answered 2026-11-16; see progress log._
 1. Go with tiered C (capture is enough for own-repo pushes and easy deploys; secure approval
    for the rest; dispatcher off full-access)? Recommended.
 2. Close device registration (`IDJ_DEVICE_REGISTRATION=closed`) and stop auto-dispatching
