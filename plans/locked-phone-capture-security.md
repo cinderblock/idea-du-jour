@@ -149,8 +149,15 @@ uses "Hey Siri" while locked).
       known device fine, window opens/closes, held item has dispatchedTs).
 - [ ] **Current step:** dispatcher prompt v4 with trust rules (`plans/dispatcher-prompt-v4.md`).
       Blocked: `schedule_task` from an `auto` thread refuses to edit the full-access task
-      (`runtime_mode_escalation_denied`), and the tool has no runtime-mode field. Cameron sets
-      the task's mode to `auto` by hand in T3; then this thread can save the prompt.
+      (`runtime_mode_escalation_denied`). T3's scheduled-task settings have **no runtime-mode
+      field** (checked `ScheduledTasksSettings.tsx`, t3code `c113005`). The task is bound to
+      thread `thread:project:d90bf685-a805-4812-afe8-560cafdd8bac:a5b0a3ee-101f-4acb-97be-c9a6e0094175`
+      ("idj: dispatch captures to threads"), and bound runs are `sendToThread` into it, so the
+      **thread's** access mode is what runs (full-access today). `t3_thread_configure` can't
+      change permission modes. So, by hand: (1) set that thread's access mode to Auto in its
+      composer; (2) paste `plans/dispatcher-prompt-v4.md` into the task's Prompt field in
+      Settings → Scheduled tasks (the stored task mode stays full-access, so the MCP edit stays
+      refused).
 - [ ] Ops ask worker as the approval channel: Cameron finishes its setup (3 prod secrets, first
       passkey); then stage an ops change adding an agent principal (per-change yes), then a
       helper the threads call to ask and wait.
