@@ -147,17 +147,18 @@ uses "Hey Siri" while locked).
       captures released by approval are marked dispatched (`held`) and never reach agents.
       `49b2150`, pushed. Tested on a temp DB (fresh = open, after approve = 403 for new IDs,
       known device fine, window opens/closes, held item has dispatchedTs).
-- [ ] **Current step:** dispatcher prompt v4 with trust rules (`plans/dispatcher-prompt-v4.md`).
-      Blocked: `schedule_task` from an `auto` thread refuses to edit the full-access task
-      (`runtime_mode_escalation_denied`). T3's scheduled-task settings have **no runtime-mode
-      field** (checked `ScheduledTasksSettings.tsx`, t3code `c113005`). The task is bound to
-      thread `thread:project:d90bf685-a805-4812-afe8-560cafdd8bac:a5b0a3ee-101f-4acb-97be-c9a6e0094175`
-      ("idj: dispatch captures to threads"), and bound runs are `sendToThread` into it, so the
-      **thread's** access mode is what runs (full-access today). `t3_thread_configure` can't
-      change permission modes. So, by hand: (1) set that thread's access mode to Auto in its
-      composer; (2) paste `plans/dispatcher-prompt-v4.md` into the task's Prompt field in
-      Settings → Scheduled tasks (the stored task mode stays full-access, so the MCP edit stays
-      refused).
+- [x] Dispatcher prompt v4 with trust rules is live (2026-11-16 ~5:00 PM PST (01:00Z)). The task
+      runs in its bound thread `thread:project:d90bf685-a805-4812-afe8-560cafdd8bac:a5b0a3ee-101f-4acb-97be-c9a6e0094175`,
+      whose mode is now `auto` (verified in `statev2.sqlite`). Gotchas: T3's access picker only
+      changes the composer draft; it persists when a message is sent in that thread. The task's
+      own stored `runtime_mode` is still `full-access` (unused for bound runs, no UI to change
+      it), so `schedule_task` edits from an `auto` thread stay refused: future prompt edits are
+      pasted by hand in Settings → Scheduled tasks. Saved prompt verified identical to
+      `plans/dispatcher-prompt-v4.md`.
+- [ ] **Current step:** Cameron's test capture: a harmless gated request (e.g. "delete
+      plans/dispatch-daily-threads.md and push"); the thread should ask instead of acting.
+- [ ] Deploy of `49b2150` (in image `91b1c5e`, CI smoke passed): waiting on ops Renovate to
+      bump the idj pin (prod still `c837198` at 2026-11-16 ~5:00 PM PST).
 - [ ] Ops ask worker as the approval channel: Cameron finishes its setup (3 prod secrets, first
       passkey); then stage an ops change adding an agent principal (per-change yes), then a
       helper the threads call to ask and wait.
