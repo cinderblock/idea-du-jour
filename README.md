@@ -66,8 +66,10 @@ downloads a signed shortcut. There's no token to paste: the phone **pairs**. On 
 shortcut makes a random device ID, keeps it in iCloud Drive (`Shortcuts/idj-device-id.txt`),
 and sends it with every capture. A new phone's captures are held, the inbox shows a
 "captures waiting" banner, and `/devices` lists the phone with Approve / Reject. Approve
-releases what it captured into the inbox (with the original times); after that its
-captures go straight in. Revoke stops a phone. A stranger with the public file can only
+releases what it captured into the inbox (with the original times), but never dispatches those
+held captures to agents; after that its captures go straight in. **Registration closes once a
+device is approved:** an unknown device is then refused (403, nothing kept) until you press
+"Allow a new device for 30 minutes" on `/devices`. Revoke stops a phone. A stranger with the public file can only
 fill the waiting list (capped: 20 captures and 25 MB per device, 20 waiting devices,
 30 requests/min per IP), never the inbox. Because the ID is in iCloud Drive, a new phone
 (or an iPad or Mac) on the same Apple ID is the same device; `/devices` keeps a history of

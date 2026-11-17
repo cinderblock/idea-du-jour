@@ -2,11 +2,10 @@ import { createHash } from 'node:crypto'
 import { and, asc, count, desc, eq, inArray } from 'drizzle-orm'
 import { ulid } from 'ulid'
 import { db } from '../db/client'
-import { deviceChanges, devices, pendingCaptures, type Device } from '../db/schema'
+import { deviceChanges, devices, pendingCaptures, settings, type Device } from '../db/schema'
 import { deletePendingAudio, readPendingAudio, savePendingAudio } from './audio'
-import { enqueueDispatch } from './dispatch'
 import { enqueueEnrichment } from './enrich'
-import { captureAudioItem, captureItem } from './events'
+import { captureAudioItem, captureItem, markDispatched } from './events'
 import { enqueueTranscription } from './transcribe'
 import { notifyTranscriptionQueued } from './transcribeQueue'
 
@@ -82,6 +81,44 @@ export function clientIp(request: Request): string {
   )
 }
 
+/**
+ * New-device registration. Open until the first device is approved (so a
+ * fresh install can pair), then closed: an unknown device ID gets 403 and
+ * nothing is held. Signed in, you can open it for a short window to add a
+ * device. A new phone on the same Apple ID doesn't need this: the device ID is
+ * in iCloud Drive, so it is already the approved device.
+ */
+const REGISTRATION_KEY = 'deviceRegistrationOpenUntil'
+export const REGISTRATION_WINDOW_MS = 30 * 60 * 1000
+
+export async function registrationStatus(): Promise<{
+  open: boolean
+  /** Why: no device approved yet, or an open window until this time. */
+  reason: 'no-approved-device' | 'window' | 'closed'
+  openUntil: number | null
+}> {
+  const [{ approved }] = await db
+    .select({ approved: count() })
+    .from(devices)
+    .where(eq(devices.status, 'approved'))
+  const [row] = await db.select().from(settings).where(eq(settings.key, REGISTRATION_KEY)).limit(1)
+  const until = typeof row?.value === 'number' ? row.value : null
+  const openUntil = until && until > Date.now() ? until : null
+  if (openUntil) return { open: true, reason: 'window', openUntil }
+  if (approved === 0) return { open: true, reason: 'no-approved-device', openUntil: null }
+  return { open: false, reason: 'closed', openUntil: null }
+}
+
+/** Open registration for a while (`open`), or close it now. */
+export async function setRegistration(open: boolean): Promise<void> {
+  const now = Date.now()
+  const value = open ? now + REGISTRATION_WINDOW_MS : 0
+  await db
+    .insert(settings)
+    .values({ key: REGISTRATION_KEY, value, updatedTs: now })
+    .onConflictDoUpdate({ target: settings.key, set: { value, updatedTs: now } })
+}
+
 // Per-IP limiter for unapproved devices. In memory: one server process, and a
 // restart only resets the window.
 const hits = new Map<string, number[]>()
@@ -135,6 +172,9 @@ export async function resolveDevice(info: DeviceInfo, ip: string): Promise<Devic
     return { ...found, lastSeenTs: now, name: info.name, model: info.model }
   }
 
+  if (!(await registrationStatus()).open) {
+    throw new DeviceError(403, 'idj is not accepting new devices; allow one on the devices page first')
+  }
   rateLimit(ip)
   const [{ n }] = await db
     .select({ n: count() })
@@ -251,6 +291,11 @@ async function heldFor(deviceId: string) {
  * Approve a device and release everything it captured while waiting into the
  * inbox, oldest first, with the original capture times. Each becomes a normal
  * `item.created` event, so a projection rebuild replays it like any other.
+ *
+ * Released captures are never dispatched to agents: they were sent before
+ * anyone vouched for the device, and a pile of them more likely means a
+ * misconfiguration or a stranger than a backlog. They are marked dispatched
+ * (target `held`) before transcription can trigger a dispatch.
  */
 export async function approveDevice(id: string): Promise<{ released: number }> {
   const device = await requireDevice(id)
@@ -270,13 +315,14 @@ export async function approveDevice(id: string): Promise<{ released: number }> {
         actor: deviceActor(approved),
         ts: p.ts,
       })
+      await markDispatched({ itemId, target: 'held' })
       enqueueTranscription(itemId)
       notifyTranscriptionQueued()
       await deletePendingAudio(p.audio)
     } else if (p.text) {
       const itemId = await captureItem({ text: p.text, actor: deviceActor(approved), ts: p.ts })
+      await markDispatched({ itemId, target: 'held' })
       enqueueEnrichment(itemId)
-      enqueueDispatch(itemId)
     }
     await db.delete(pendingCaptures).where(eq(pendingCaptures.id, p.id))
     released++

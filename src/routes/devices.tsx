@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, createFileRoute, isRedirect, redirect, useRouter } from '@tanstack/react-router'
-import { decideDevice, fetchDevices, getAuth } from '../server/webapi'
+import { decideDevice, fetchDevices, getAuth, setRegistrationFn } from '../server/webapi'
 import { relativeTime } from '../ui/util'
 
 /**
@@ -23,6 +23,7 @@ export const Route = createFileRoute('/devices')({
 })
 
 type Row = Awaited<ReturnType<typeof fetchDevices>>['devices'][number]
+type Reg = Awaited<ReturnType<typeof fetchDevices>>['registration']
 
 const STATUS_STYLE: Record<string, string> = {
   pending: 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300',
@@ -31,8 +32,48 @@ const STATUS_STYLE: Record<string, string> = {
   revoked: 'bg-gray-200 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
 }
 
+function Registration({ r }: { r: Reg }) {
+  const router = useRouter()
+  const [busy, setBusy] = useState(false)
+  async function set(open: boolean) {
+    setBusy(true)
+    try {
+      await setRegistrationFn({ data: { open } })
+      await router.invalidate()
+    } finally {
+      setBusy(false)
+    }
+  }
+  const text =
+    r.reason === 'no-approved-device'
+      ? 'Open: no device is approved yet, so the first one can pair.'
+      : r.reason === 'window'
+        ? `Open until ${new Date(r.openUntil!).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' })}. A new device's captures will wait here for approval.`
+        : 'Closed: unknown devices are refused and nothing they send is kept. A new phone on your Apple ID is already your approved device.'
+  return (
+    <section className="mt-6 rounded-lg border border-gray-200 p-3 text-sm dark:border-gray-800">
+      <h2 className="font-semibold">New devices</h2>
+      <p className="mt-1 text-gray-600 dark:text-gray-400">{text}</p>
+      {r.reason === 'closed' && (
+        <div className="mt-2">
+          <Button onClick={() => set(true)} disabled={busy}>
+            Allow a new device for 30 minutes
+          </Button>
+        </div>
+      )}
+      {r.reason === 'window' && (
+        <div className="mt-2">
+          <Button onClick={() => set(false)} disabled={busy}>
+            Close now
+          </Button>
+        </div>
+      )}
+    </section>
+  )
+}
+
 function Devices() {
-  const { devices } = Route.useLoaderData()
+  const { devices, registration } = Route.useLoaderData()
   const pending = devices.filter((d) => d.status === 'pending')
   const rest = devices.filter((d) => d.status !== 'pending')
 
@@ -44,9 +85,11 @@ function Devices() {
       <h1 className="mt-4 text-xl font-bold tracking-tight">Devices</h1>
       <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
         Phones running the “Record to idj” shortcut. A new phone waits here until you approve
-        it; whatever it captured meanwhile is held, then released into your inbox. Approve
-        only devices you recognise.
+        it; whatever it captured meanwhile is held, then released into your inbox (not sent to
+        agents). Approve only devices you recognise.
       </p>
+
+      <Registration r={registration} />
 
       {pending.length > 0 && (
         <section className="mt-6">
@@ -87,7 +130,7 @@ function DeviceRow({ d }: { d: Row }) {
       const r = await decideDevice({ data: { id: d.id, action } })
       setNote(
         action === 'approve'
-          ? `Approved. ${r.released} capture${r.released === 1 ? '' : 's'} released into your inbox.`
+          ? `Approved. ${r.released} capture${r.released === 1 ? '' : 's'} released into your inbox (not sent to agents).`
           : action === 'reject'
             ? `Rejected. ${r.dropped} held capture${r.dropped === 1 ? '' : 's'} deleted.`
             : 'Revoked.',

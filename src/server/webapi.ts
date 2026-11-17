@@ -1,7 +1,15 @@
 import { createServerFn } from '@tanstack/react-start'
 import { currentUserId, requireUserId } from './auth'
 import { listTokens, mintToken, revokeToken, type Scope } from './tokens'
-import { approveDevice, listDevices, rejectDevice, revokeDevice, waitingSummary } from './devices'
+import {
+  approveDevice,
+  listDevices,
+  registrationStatus,
+  rejectDevice,
+  revokeDevice,
+  setRegistration,
+  waitingSummary,
+} from './devices'
 import { enqueueDispatch } from './dispatch'
 import { enqueueEnrichment } from './enrich'
 import {
@@ -114,8 +122,17 @@ export const revokeTokenFn = createServerFn({ method: 'POST' })
 /** Paired devices (phones that capture without a token), with waiting counts. */
 export const fetchDevices = createServerFn({ method: 'GET' }).handler(async () => {
   requireUserId()
-  return { devices: await listDevices() }
+  return { devices: await listDevices(), registration: await registrationStatus() }
 })
+
+/** Open new-device registration for a short window, or close it now. */
+export const setRegistrationFn = createServerFn({ method: 'POST' })
+  .validator((data: { open: boolean }) => data)
+  .handler(async ({ data }) => {
+    requireUserId()
+    await setRegistration(data.open)
+    return registrationStatus()
+  })
 
 /** Approve (releases held captures), reject (drops them) or revoke a device. */
 export const decideDevice = createServerFn({ method: 'POST' })

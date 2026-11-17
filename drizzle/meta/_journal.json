@@ -50,6 +50,13 @@
       "when": 1794868566922,
       "tag": "0006_mature_susan_delgado",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1794874110557,
+      "tag": "0007_hot_azazel",
+      "breakpoints": true
     }
   ]
 }

@@ -161,6 +161,13 @@ export const deviceChanges = sqliteTable('device_changes', {
   ip: text('ip'),
 })
 
+/** settings — small server-side switches changed from the web UI. */
+export const settings = sqliteTable('settings', {
+  key: text('key').primaryKey(),
+  value: text('value', { mode: 'json' }).$type<Json>(),
+  updatedTs: integer('updated_ts').notNull(),
+})
+
 export type Device = typeof devices.$inferSelect
 export type DeviceChange = typeof deviceChanges.$inferSelect
 export type PendingCapture = typeof pendingCaptures.$inferSelect
